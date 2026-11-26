@@ -7,19 +7,19 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 - FW 1.0 er ude i marken. Den importerede 1.0-kode er tagget `v1.0` (`271ed26`), som er
   det faste sammenligningspunkt for 2.0.
   Det er ikke tjekket, om den er bit-identisk med det image, der er i marken.
-- App og BTL bygger rent fra en frisk klon (bekræftet 2026-11-26).
+- App og BTL bygger rent fra en frisk klon (bekræftet 2026-11-26), også efter oprydningen af
+  backupfiler i `App/src`.
 - Mål: FW 2.0 som en komplet ombygning med lagdeling og host-tests, som på
   Volante/D333. En UART-testramme skal med fra første version af 2.0
   (`knowledge/baenk-automatisering.md`).
 
 ## Næste skridt
 
-1. **Bevis bygget på branch `cleanup/backupfiler`:** Backupfilerne i `App/src` er slettet
-   der, men App er endnu ikke bygget uden dem. Kør Clean and Build af `SW58403.X`. Er
-   bygget rent, så merge branchen til `main`.
-2. **PRD for 2.0 (#1):** Rammebeslutningerne er truffet og står i issuet. Næste skridt er at
+1. **PRD for 2.0 (#1):** Rammebeslutningerne er truffet og står i issuet. Næste skridt er at
    gennemgå 1.0's adfærd modul for modul og derefter skrive PRD'en med D333 som skabelon.
    Start i en ny session.
+2. **Fælles erfaringer:** Vandmærket står på "ingen endnu". Gennemgå de relevante filer i
+   `claude-setup/knowledge/` mod projektet.
 3. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
@@ -29,7 +29,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
   `bu/Dac_Control.c`, `IR_Control_bu.c`, `app_usb_cmd_BU.c`, `_On_Off_Control.c`,
   `screen_Action_clean.c` og `ir_control.zip`. `configurations.xml` nævner ingen af dem, ingen
   kildefil `#include`'r dem, og `Ny mappe/` står ikke i nogen include-sti. Filerne kan hentes
-  tilbage fra `v1.0`. Bygget er endnu ikke bevist.
+  tilbage fra `v1.0`. Michael har bekræftet, at App og BTL bygger rent efter oprydningen,
+  og branchen er merget til `main`.
 - Rammen for 2.0 er besluttet (#1). 2.0 er en ny arkitektur med 1.0's adfærd, og Auto Standby
   er den eneste nye feature, 1:1 som på D333. D333 er skabelonen. Koden ligger i en ny mappe ved siden af `App/`.
   App 2.0 skal kunne installeres via BTL 1.0. En selvopdaterbar BTL 2.0 er et separat forstudie (#2).

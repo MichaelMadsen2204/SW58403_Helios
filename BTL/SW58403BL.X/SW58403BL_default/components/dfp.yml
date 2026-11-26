@@ -1,0 +1,51 @@
+configVersion: 1.0.0
+componentName: dfp
+coreVersion: 5.8.2
+device: PIC32MZ2064DAR176
+library: []
+dependency:
+- dependencyPackage: class com.microchip.mcc.harmony.HarmonyModule
+  name: dfp
+  type: module
+  version: ''
+- dependencyPackage: ''
+  name: bootloader
+  type: package
+  version: v3.7.0
+- dependencyPackage: ''
+  name: core
+  type: package
+  version: v3.14.1
+- dependencyPackage: ''
+  name: csp
+  type: package
+  version: v3.20.0
+- dependencyPackage: ''
+  name: filex
+  type: package
+  version: v6.4.0_rel
+- dependencyPackage: ''
+  name: littlefs
+  type: package
+  version: v2.10.1
+- dependencyPackage: ''
+  name: usb
+  type: package
+  version: v3.15.0
+customDataClassName: com.microchip.utils_mh3.utils.persistence.CustomModuleData
+data:
+  attachments: {}
+  elementPosition:
+    attributes:
+      id: __ROOTVIEW
+    children:
+    - children:
+      - attributes:
+          id: dfp
+          x: '21'
+          y: '10'
+        type: ElementPosition
+      type: ElementPositions
+    type: ComponentGraph
+  symbols: {}
+  userData: {}

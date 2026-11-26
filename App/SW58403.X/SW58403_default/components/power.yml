@@ -1,0 +1,62 @@
+configVersion: 1.0.0
+componentName: power
+coreVersion: 5.8.4
+device: PIC32MZ2064DAR176
+library: []
+dependency:
+- dependencyPackage: class com.microchip.mcc.harmony.HarmonyModule
+  name: power
+  type: module
+  version: ''
+- dependencyPackage: ''
+  name: csp
+  type: package
+  version: v3.20.0
+customDataClassName: com.microchip.utils_mh3.utils.persistence.CustomModuleData
+data:
+  attachments: {}
+  elementPosition:
+    attributes:
+      id: __ROOTVIEW
+    children:
+    - children:
+      - attributes:
+          id: power
+          x: '82'
+          y: '211'
+        type: ElementPosition
+      type: ElementPositions
+    type: ComponentGraph
+  symbols:
+    DSCON_VALUE:
+      attributes:
+        id: DSCON_VALUE
+      children:
+      - children:
+        - attributes:
+            id: power
+            value: '4352'
+          type: Dynamic
+        type: Values
+      type: Hex
+    DS_RTCC_ENABLE:
+      attributes:
+        id: DS_RTCC_ENABLE
+      children:
+      - children:
+        - attributes:
+            value: 'false'
+          type: User
+        type: Values
+      type: Boolean
+    DS_RTCC_WAKEUP_DISABLE:
+      attributes:
+        id: DS_RTCC_WAKEUP_DISABLE
+      children:
+      - children:
+        - attributes:
+            value: 'false'
+          type: User
+        type: Values
+      type: Boolean
+  userData: {}

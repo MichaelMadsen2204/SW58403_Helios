@@ -1,0 +1,349 @@
+/*******************************************************************************
+  Company:
+    Microchip Technology Inc.
+
+  File Name:
+    bootloader.c
+
+  Summary:
+    Interface for the Bootloader library.
+
+  Description:
+    This file contains the interface definition for the Bootloader library.
+*******************************************************************************/
+
+// DOM-IGNORE-BEGIN
+/*******************************************************************************
+* Copyright (C) 2020 Microchip Technology Inc. and its subsidiaries.
+*
+* Subject to your compliance with these terms, you may use Microchip software
+* and any derivatives exclusively with Microchip products. It is your
+* responsibility to comply with third party license terms applicable to your
+* use of third party software (including open source software) that may
+* accompany Microchip software.
+*
+* THIS SOFTWARE IS SUPPLIED BY MICROCHIP "AS IS". NO WARRANTIES, WHETHER
+* EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS SOFTWARE, INCLUDING ANY IMPLIED
+* WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY, AND FITNESS FOR A
+* PARTICULAR PURPOSE.
+*
+* IN NO EVENT WILL MICROCHIP BE LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE,
+* INCIDENTAL OR CONSEQUENTIAL LOSS, DAMAGE, COST OR EXPENSE OF ANY KIND
+* WHATSOEVER RELATED TO THE SOFTWARE, HOWEVER CAUSED, EVEN IF MICROCHIP HAS
+* BEEN ADVISED OF THE POSSIBILITY OR THE DAMAGES ARE FORESEEABLE. TO THE
+* FULLEST EXTENT ALLOWED BY LAW, MICROCHIP'S TOTAL LIABILITY ON ALL CLAIMS IN
+* ANY WAY RELATED TO THIS SOFTWARE WILL NOT EXCEED THE AMOUNT OF FEES, IF ANY,
+* THAT YOU HAVE PAID DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
+*******************************************************************************/
+// DOM-IGNORE-END
+
+// *****************************************************************************
+// *****************************************************************************
+// Section: Include Files
+// *****************************************************************************
+// *****************************************************************************
+
+#include <string.h>
+#include "configuration.h"
+#include "peripheral/nvm/plib_nvm.h"
+#include "bootloader/bootloader_usb_host_msd.h"
+#include "system/fs/sys_fs.h"
+#include "usb/usb_host.h"
+#include "../../app.h"
+#include "../../uart_driver.h"
+
+
+//#define APP_IMAGE_FILE_NAME     "image.bin"
+//#define APP_IMAGE_FILE_PATH     BOOTLOADER_MOUNT_NAME"/"APP_IMAGE_FILE_NAME
+
+typedef enum
+{
+    BOOTLOADER_BUS_ENABLE = 0,
+
+    BOOTLOADER_WAIT_FOR_BUS_ENABLE,
+
+    BOOTLOADER_WAIT_FOR_DEVICE_ATTACH,
+
+    BOOTLOADER_VALIDATE_FILE_AND_OPEN,
+
+    BOOTLOADER_ERASE_APPLICATION_SPACE,
+
+    BOOTLOADER_READ_FILE,
+
+    BOOTLOADER_PROCESS_FILE_BUFFER,
+
+    BOOTLOADER_DEVICE_DETACHED,
+
+    BOOTLOADER_ERROR,
+
+} BOOTLOADER_STATES;
+
+
+typedef struct
+{
+    /* Bootloader current state */
+    BOOTLOADER_STATES currentState;
+
+    /* Programming address */
+    uint32_t progAddr;
+
+    /* Stream handle */
+    SYS_FS_HANDLE fileHandle;
+
+    /* Stores Application binary file information */
+    SYS_FS_FSTAT fileStat;
+
+    /* Flag to indicate device attached */
+    bool deviceAttached;
+
+} BOOTLOADER_DATA;
+
+static uint8_t CACHE_ALIGN fileBuffer[PAGE_SIZE];
+
+
+/* --- Tiny blink state (ingen funktioner -> minimal kode) --- */
+static uint32_t _led_cnt = 0;
+static uint32_t _led_thr = 50000;   /* 0 = slukket/ingen blink */
+
+
+#define LED_THR_WAIT   30000u   /* langsom blink (venter på USB) */
+#define LED_THR_LOAD   10000u   /* hurtig blink (læs/skriv)      */
+
+/* MISRA C-2012 Rule 7.2 deviated:1 Deviation record ID -  H3_MISRAC_2012_R_5_2_DR_1 */
+
+static BOOTLOADER_DATA btlData =
+{
+    .currentState   = BOOTLOADER_BUS_ENABLE,
+    .deviceAttached = false,
+    .progAddr       = APP_START_ADDRESS
+};
+
+
+/* MISRAC 2012 deviation block end */
+
+static USB_HOST_EVENT_RESPONSE bootloader_USBHostEventHandler (USB_HOST_EVENT event, void * eventData, uintptr_t context)
+{
+    switch (event)
+    {
+        case USB_HOST_EVENT_DEVICE_UNSUPPORTED:
+            break;
+        default:
+            /* Do Nothing */
+            break;
+    }
+
+    return(USB_HOST_EVENT_RESPONSE_NONE);
+}
+
+static void bootloader_SysFsEventHandler(SYS_FS_EVENT event, void * eventData, uintptr_t context)
+{
+    switch(event)
+    {
+        case SYS_FS_EVENT_MOUNT:
+        {
+            btlData.deviceAttached = true;
+            break;
+        }
+
+        case SYS_FS_EVENT_UNMOUNT:
+        {
+            btlData.deviceAttached = false;
+
+            btlData.currentState = BOOTLOADER_DEVICE_DETACHED;
+            break;
+        }
+
+        default:
+        {
+            /* Do Nothing */
+            break;
+        }
+    }
+}
+
+/* MISRA C-2012 Rule 11.3, 11.6 deviated below. Deviation record ID -  
+   H3_MISRAC_2012_R_11_3_DR_1 & H3_MISRAC_2012_R_11_6_DR_1*/
+
+static void bootloader_NvmAppErase( uint32_t appLength )
+{
+    uint32_t flashAddr = APP_START_ADDRESS;
+
+    /* Align application binary length to erase boundary */
+    appLength = appLength + (ERASE_BLOCK_SIZE - (appLength % ERASE_BLOCK_SIZE));
+
+    while ((flashAddr < (FLASH_START + FLASH_LENGTH)) &&
+           (appLength != 0U))
+    {
+        (void) NVM_PageErase(flashAddr);
+
+        while(NVM_IsBusy() == true)
+        {
+              /* Do Nothing */
+        }
+
+        flashAddr += ERASE_BLOCK_SIZE;
+        appLength -= ERASE_BLOCK_SIZE;
+    }
+}
+
+static void bootloader_NVMPageWrite(uint8_t* data)
+{
+    (void) NVM_RowWrite((uint32_t *)data, btlData.progAddr);
+
+    while(NVM_IsBusy() == true)
+    {
+       /* Do Nothing */
+    }
+
+    btlData.progAddr += PAGE_SIZE;
+}
+
+
+/* MISRAC 2012 deviation block end */
+
+void bootloader_USB_HOST_MSD_Tasks( void )
+{
+    size_t fileReadLength;
+
+    switch ( btlData.currentState )
+    {
+        case BOOTLOADER_BUS_ENABLE:
+        {
+            (void) USB_HOST_BusEnable(0);
+
+            btlData.currentState = BOOTLOADER_WAIT_FOR_BUS_ENABLE;
+
+            break;
+        }
+
+        case BOOTLOADER_WAIT_FOR_BUS_ENABLE:
+        {
+            
+            _led_thr = LED_THR_WAIT;
+
+            if((uint32_t)USB_HOST_BusIsEnabled(0) == (uint32_t)USB_HOST_RESULT_TRUE)
+            {
+                SYS_FS_EventHandlerSet(bootloader_SysFsEventHandler, 0U);
+
+                (void) USB_HOST_EventHandlerSet(bootloader_USBHostEventHandler, 0);
+
+                btlData.currentState = BOOTLOADER_WAIT_FOR_DEVICE_ATTACH;
+                UART_Puts("BUS_ENA");
+            }
+            break;
+        }
+
+        case BOOTLOADER_WAIT_FOR_DEVICE_ATTACH:
+        {
+            if (btlData.deviceAttached == true)
+            {
+                UART_Puts("deviceAttached");
+                UART_CRLF();
+                btlData.currentState = BOOTLOADER_VALIDATE_FILE_AND_OPEN;
+            }
+            break;
+        }
+
+        case BOOTLOADER_VALIDATE_FILE_AND_OPEN:
+        {
+            _led_thr = LED_THR_LOAD;
+            char fwPath[128];
+            bool found = SelectLatestFirmware_LFN(fwPath, sizeof(fwPath));
+            if (found)
+            {
+                UART_Puts("found");
+                UART_CRLF();
+            }
+     
+
+            
+            if (found && SYS_FS_FileStat(fwPath, &btlData.fileStat) == SYS_FS_RES_SUCCESS)
+            {
+                /* Check if the application binary file has any content */
+                if (btlData.fileStat.fsize <= 0U)
+                {
+                    break;
+                }
+
+                btlData.fileHandle = SYS_FS_FileOpen(fwPath, (SYS_FS_FILE_OPEN_READ));
+
+                if(btlData.fileHandle != SYS_FS_HANDLE_INVALID)
+                {
+                    /* File opened successfully. Erase Application space */
+                    btlData.currentState = BOOTLOADER_ERASE_APPLICATION_SPACE;
+                }
+            }
+
+            break;
+        }
+
+        case BOOTLOADER_ERASE_APPLICATION_SPACE:
+        {
+            _led_thr = LED_THR_LOAD;
+            bootloader_NvmAppErase((uint32_t)btlData.fileStat.fsize);
+
+            btlData.currentState = BOOTLOADER_READ_FILE;
+
+            (void) memset((void *)fileBuffer, 0xFF, PAGE_SIZE);
+
+            break;
+        }
+
+        case BOOTLOADER_READ_FILE:
+        {
+            _led_thr = LED_THR_LOAD;
+            fileReadLength = SYS_FS_FileRead(btlData.fileHandle, (void *)fileBuffer, PAGE_SIZE);
+
+            /* Reached End of File */
+            if (fileReadLength <= 0U)
+            {
+                (void) SYS_FS_FileClose(btlData.fileHandle);
+                _led_thr = 0; 
+                LED_OFF();
+                
+                bootloader_TriggerReset();
+            }
+            else
+            {
+                btlData.currentState = BOOTLOADER_PROCESS_FILE_BUFFER;
+            }
+
+            break;
+        }
+
+        case BOOTLOADER_PROCESS_FILE_BUFFER:
+        {
+            _led_thr = LED_THR_LOAD;
+            bootloader_NVMPageWrite(fileBuffer);
+
+            (void) memset((void *)fileBuffer, 0xFF, PAGE_SIZE);
+
+            btlData.currentState = BOOTLOADER_READ_FILE;
+
+            break;
+        }
+
+        case BOOTLOADER_DEVICE_DETACHED:
+        {
+            (void) SYS_FS_FileClose(btlData.fileHandle);
+            _led_thr = LED_THR_WAIT;
+
+            btlData.currentState = BOOTLOADER_WAIT_FOR_DEVICE_ATTACH;
+            break;
+        }
+
+        case BOOTLOADER_ERROR: 
+        default:
+            /* Do Nothing */
+            break;
+    }
+    /* --- Tiny LED tick (ingen funktioner, ingen timer) --- */
+    if (_led_thr) {
+    if (++_led_cnt >= _led_thr) {
+        _led_cnt = 0;
+        LED_TOGGLE();
+    }
+    
+}else UART_Puts("stopped\n");
+
+}

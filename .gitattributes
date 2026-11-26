@@ -1,0 +1,22 @@
+# Alt tekst normaliseres til LF i repoet og checkes ud som LF. Alle sporede filer
+# ligger allerede som LF i indekset, så dette ændrer intet indhold — det stopper
+# core.autocrlf i at skrive CRLF tilbage og dermed producere hel-fil-diffs den dag
+# MPLAB X eller MCC gemmer en fil igen.
+* text=auto eol=lf
+
+# Undtagelse: cmd.exe kan ikke køre batch-filer med kun LF. En frisk checkout af
+# APP/SW58504.X/postbuild.cmd med LF fik MPLAB's post-build til at hænge (#29).
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Sikkerhedsnet: billeder og firmware-artefakter må aldrig linjeskift-konverteres,
+# hvis nogen senere sporer en af dem.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.bin binary
+*.hex binary
+*.elf binary

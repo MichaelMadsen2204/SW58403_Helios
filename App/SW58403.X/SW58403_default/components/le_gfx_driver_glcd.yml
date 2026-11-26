@@ -1,0 +1,156 @@
+configVersion: 1.0.0
+componentName: le_gfx_driver_glcd
+coreVersion: 5.8.4
+device: PIC32MZ2064DAR176
+library: []
+dependency:
+- dependencyPackage: class com.microchip.mcc.harmony.HarmonyModule
+  name: le_gfx_driver_glcd
+  type: module
+  version: ''
+- dependencyPackage: ''
+  name: gfx
+  type: package
+  version: v3.15.3
+customDataClassName: com.microchip.utils_mh3.utils.persistence.CustomModuleData
+data:
+  attachments:
+    children:
+    - children:
+      - attributes:
+          id: Graphics Display
+        children:
+        - children:
+          - attributes:
+              id: targetComponentID
+            children:
+            - type: Value
+              value: gfx_disp_pdatm4301b_480x272
+            type: String
+          - attributes:
+              id: targetAttachmentID
+            children:
+            - type: Value
+              value: gfx_display
+            type: String
+          type: Attributes
+        type: DirectDependency
+      - attributes:
+          id: gfx_driver_glcd
+        children:
+        - children:
+          - attributes:
+              id: targetComponentID
+            children:
+            - type: Value
+              value: gfx_legato
+            type: String
+          - attributes:
+              id: targetAttachmentID
+            children:
+            - type: Value
+              value: gfx_driver
+            type: String
+          type: Attributes
+        type: DirectCapability
+      type: Attachments
+    type: le_gfx_driver_glcd
+  elementPosition:
+    attributes:
+      id: __ROOTVIEW
+    children:
+    - children:
+      - attributes:
+          id: le_gfx_driver_glcd
+          x: '713'
+          y: '202'
+        type: ElementPosition
+      type: ElementPositions
+    type: ComponentGraph
+  symbols:
+    DisplayHeight:
+      attributes:
+        id: DisplayHeight
+      children:
+      - children:
+        - attributes:
+            id: le_gfx_driver_glcd
+            value: '272'
+          type: Dynamic
+        type: Values
+      type: Integer
+    DisplayWidth:
+      attributes:
+        id: DisplayWidth
+      children:
+      - children:
+        - attributes:
+            id: le_gfx_driver_glcd
+            value: '480'
+          type: Dynamic
+        type: Values
+      type: Integer
+    FrameBufferColorMode:
+      attributes:
+        id: FrameBufferColorMode
+      children:
+      - children:
+        - attributes:
+            value: '1'
+          type: User
+        type: Values
+      type: KeyValueSet
+    Layer1Enable:
+      attributes:
+        id: Layer1Enable
+      children:
+      - children:
+        - attributes:
+            value: 'false'
+          type: User
+        type: Values
+      type: Boolean
+    Layer2Enable:
+      attributes:
+        id: Layer2Enable
+      children:
+      - children:
+        - attributes:
+            value: 'false'
+          type: User
+        type: Values
+      type: Boolean
+    MasterClockSourceValue:
+      attributes:
+        id: MasterClockSourceValue
+      children:
+      - children:
+        - attributes:
+            id: le_gfx_driver_glcd
+            value: '150000000'
+          type: Dynamic
+        type: Values
+      type: Integer
+    PixelClock:
+      attributes:
+        id: PixelClock
+      children:
+      - children:
+        - attributes:
+            id: le_gfx_driver_glcd
+            value: '25000000'
+          type: Dynamic
+        type: Values
+      type: Integer
+    TotalNumLayers:
+      attributes:
+        id: TotalNumLayers
+      children:
+      - children:
+        - attributes:
+            id: le_gfx_driver_glcd
+            value: '1'
+          type: Dynamic
+        type: Values
+      type: Integer
+  userData: {}

@@ -1,0 +1,144 @@
+configVersion: 1.0.0
+componentName: file_system_bootloader
+coreVersion: 5.8.2
+device: PIC32MZ2064DAR176
+library: []
+dependency:
+- dependencyPackage: class com.microchip.mcc.harmony.HarmonyModule
+  name: file_system_bootloader
+  type: module
+  version: ''
+- dependencyPackage: ''
+  name: bootloader
+  type: package
+  version: v3.7.0
+- dependencyPackage: ''
+  name: core
+  type: package
+  version: v3.14.1
+- dependencyPackage: ''
+  name: csp
+  type: package
+  version: v3.20.0
+- dependencyPackage: ''
+  name: filex
+  type: package
+  version: v6.4.0_rel
+- dependencyPackage: ''
+  name: littlefs
+  type: package
+  version: v2.10.1
+- dependencyPackage: ''
+  name: usb
+  type: package
+  version: v3.15.0
+customDataClassName: com.microchip.utils_mh3.utils.persistence.CustomModuleData
+data:
+  attachments:
+    children:
+    - children:
+      - attributes:
+          id: btl_MEMORY_dependency
+        children:
+        - children:
+          - attributes:
+              id: targetComponentID
+            children:
+            - type: Value
+              value: nvm
+            type: String
+          - attributes:
+              id: targetAttachmentID
+            children:
+            - type: Value
+              value: NVM_MEMORY
+            type: String
+          type: Attributes
+        type: DirectDependency
+      type: Attachments
+    type: file_system_bootloader
+  elementPosition:
+    attributes:
+      id: __ROOTVIEW
+    children:
+    - children:
+      - attributes:
+          id: file_system_bootloader
+          x: '436'
+          y: '200'
+        type: ElementPosition
+      type: ElementPositions
+    type: ComponentGraph
+  symbols:
+    BTL_SIZE:
+      attributes:
+        id: BTL_SIZE
+      children:
+      - children:
+        - attributes:
+            id: file_system_bootloader
+            value: '81920'
+          type: Dynamic
+        type: Values
+      type: String
+    BTL_TRIGGER_ENABLE:
+      attributes:
+        id: BTL_TRIGGER_ENABLE
+      children:
+      - children:
+        - attributes:
+            value: 'true'
+          type: User
+        type: Values
+      type: Boolean
+    BTL_TRIGGER_LEN:
+      attributes:
+        id: BTL_TRIGGER_LEN
+      children:
+      - children:
+        - attributes:
+            id: visible
+          children:
+          - type: Value
+            value: 'true'
+          type: Boolean
+        type: Attributes
+      - children:
+        - attributes:
+            value: '16'
+          type: User
+        type: Values
+      type: String
+    BTL_TYPE:
+      attributes:
+        id: BTL_TYPE
+      children:
+      - children:
+        - attributes:
+            id: file_system_bootloader
+            value: USB_HOST_MSD
+          type: Dynamic
+        type: Values
+      type: String
+    MEDIA_TYPE:
+      attributes:
+        id: MEDIA_TYPE
+      children:
+      - children:
+        - attributes:
+            value: '2'
+          type: User
+        type: Values
+      type: KeyValueSet
+    MEM_USED:
+      attributes:
+        id: MEM_USED
+      children:
+      - children:
+        - attributes:
+            id: file_system_bootloader
+            value: NVM
+          type: Dynamic
+        type: Values
+      type: String
+  userData: {}

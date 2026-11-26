@@ -1,0 +1,82 @@
+configVersion: 1.0.0
+componentName: drv_usbhs_v1
+coreVersion: 5.8.4
+device: PIC32MZ2064DAR176
+library: []
+dependency:
+- dependencyPackage: class com.microchip.mcc.harmony.HarmonyModule
+  name: drv_usbhs_v1
+  type: module
+  version: ''
+- dependencyPackage: ''
+  name: usb
+  type: package
+  version: v3.15.0
+customDataClassName: com.microchip.utils_mh3.utils.persistence.CustomModuleData
+data:
+  attachments: {}
+  elementPosition:
+    attributes:
+      id: __ROOTVIEW
+    children:
+    - children:
+      - attributes:
+          id: drv_usbhs_v1
+          x: '479'
+          y: '765'
+        type: ElementPosition
+      type: ElementPositions
+    type: ComponentGraph
+  symbols:
+    ENABLE_DRV_USB_DEVICE_SOURCE:
+      attributes:
+        id: ENABLE_DRV_USB_DEVICE_SOURCE
+      children:
+      - children:
+        - attributes:
+            id: drv_usbhs_v1
+            value: 'false'
+          type: Dynamic
+        type: Values
+      type: Boolean
+    ENABLE_DRV_USB_HOST_SOURCE:
+      attributes:
+        id: ENABLE_DRV_USB_HOST_SOURCE
+      children:
+      - children:
+        - attributes:
+            id: drv_usbhs_v1
+            value: 'true'
+          type: Dynamic
+        type: Values
+      type: Boolean
+    USB_HOST_VBUS_ENABLE:
+      attributes:
+        id: USB_HOST_VBUS_ENABLE
+      children:
+      - children:
+        - attributes:
+            id: visible
+          children:
+          - type: Value
+            value: 'true'
+          type: Boolean
+        type: Attributes
+      - children:
+        - attributes:
+            value: 'false'
+          type: User
+        type: Values
+      type: Boolean
+    USB_OPERATION_MODE:
+      attributes:
+        id: USB_OPERATION_MODE
+      children:
+      - children:
+        - attributes:
+            id: drv_usbhs_v1
+            value: Host
+          type: Dynamic
+        type: Values
+      type: Combo
+  userData: {}

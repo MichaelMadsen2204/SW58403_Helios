@@ -1,0 +1,53 @@
+configVersion: 1.0.0
+componentName: usb_host_msd
+coreVersion: 5.8.4
+device: PIC32MZ2064DAR176
+library: []
+dependency:
+- dependencyPackage: class com.microchip.mcc.harmony.HarmonyModule
+  name: usb_host_msd
+  type: module
+  version: ''
+- dependencyPackage: ''
+  name: usb
+  type: package
+  version: v3.15.0
+customDataClassName: com.microchip.utils_mh3.utils.persistence.CustomModuleData
+data:
+  attachments:
+    children:
+    - children:
+      - attributes:
+          id: USB Host MSD
+        children:
+        - children:
+          - attributes:
+              id: targetComponentID
+            children:
+            - type: Value
+              value: sys_fs
+            type: String
+          - attributes:
+              id: targetAttachmentID
+            children:
+            - type: Value
+              value: sys_fs_DRV_MEDIA_dependency
+            type: String
+          type: Attributes
+        type: DirectCapability
+      type: Attachments
+    type: usb_host_msd
+  elementPosition:
+    attributes:
+      id: __ROOTVIEW
+    children:
+    - children:
+      - attributes:
+          id: usb_host_msd
+          x: '65'
+          y: '700'
+        type: ElementPosition
+      type: ElementPositions
+    type: ComponentGraph
+  symbols: {}
+  userData: {}

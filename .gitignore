@@ -1,0 +1,25 @@
+# MPLAB X build output and local IDE state
+**/*.X/build/
+**/*.X/dist/
+**/*.X/debug/
+**/*.X/disassembly/
+**/*.X/.generated_files/
+**/*.X/queuelogs/
+**/*.X/nbproject/private/
+**/*.X/nbproject/Makefile-local-*.mk
+**/*.X/nbproject/Makefile-genesis.properties
+**/*.X/nbproject/Package-*.bash
+**/*.X/defmplabxtrace.log*
+MPLABXLog.xml
+
+# MCC automatic backups and autosave state; keep active MCC configuration
+**/*.X/*.bak[0-9]*
+**/*.X/mcc-manifest-autosave.yml
+
+# Windows Explorer / Office metadata
+Thumbs.db
+Desktop.ini
+~$*
+
+# Claude Code: the shared permission list is tracked, the per-machine one is not
+/.claude/settings.local.json

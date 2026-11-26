@@ -18,13 +18,28 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 1. **PRD for 2.0 (#1):** Rammebeslutningerne er truffet og står i issuet. Næste skridt er at
    gennemgå 1.0's adfærd modul for modul og derefter skrive PRD'en med D333 som skabelon.
    Start i en ny session.
-2. **Fælles erfaringer:** Vandmærket står på "ingen endnu". Gennemgå de relevante filer i
-   `claude-setup/knowledge/` mod projektet.
-3. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
+   Brug kommentaren på #1 med BTL 1.0's bindinger på App 2.0 og kravene fra de fælles
+   erfaringer, og #3 med de kendte fejl i 1.0.
+2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
+3. **Rettelser til fælles erfaringer, venter på Michaels ja:**
+   - SVC-009 siger, at Helios kan resette under afspilning. Det sker ikke, for USB behandles
+     kun i standby (`tasks.c:93`).
+   - GUI-002 er for snæver. Composer kan også inkludere eksplicitte glyf-intervaller.
 
 ## Log
 
 ### 2026-11-26
+- De fælles erfaringer er gennemgået mod 1.0 (kode læst, intet set på hardware). Vandmærket
+  står i `CLAUDE.md`. Kendte fejl i 1.0 står i #3, som er reference og ikke rettes nu. Kravene
+  til 2.0 og BTL 1.0's bindinger står i en kommentar på #1. Følgende gælder ikke for Helios:
+  - USBH-001, USBH-002 og USBH-008, fordi Helios bruger USBHS og ikke drv_usbfs.
+  - USBH-007, fordi MCU'en ikke styrer VBUS (`portPowerEnable = NULL`).
+  - BTL-008, I2C-002 og WDT-004, som er PIC32MX-specifikke.
+  - MCC-002, som er MX-specifik. På MZ gælder `PMDL1WAY = ON` i stedet.
+  - HIL-007…010, PS-001…003 og PS-005, fordi der hverken er Arduino-rig eller PowerShell-scripts.
+
+  GIT-001 og PS-004 er allerede opfyldt af `.gitattributes`.
+- `CLAUDE.md` er rettet: BTL er genereret med MCC 5.6.2 / core 5.8.2 og ikke 5.6.4.
 - Branch `cleanup/backupfiler`: Følgende 10 backupfiler er slettet fra `App/src`: `Ny mappe/` (4 filer),
   `bu/Dac_Control.c`, `IR_Control_bu.c`, `app_usb_cmd_BU.c`, `_On_Off_Control.c`,
   `screen_Action_clean.c` og `ir_control.zip`. `configurations.xml` nævner ingen af dem, ingen

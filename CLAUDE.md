@@ -6,8 +6,10 @@ komplet ombygning (se `DAYLOG.md`).
 ## Projektet
 
 - **MCU:** PIC32MZ2064DAR176 (PIC32MZ DA), DFP `PIC32MZ-DA_DFP` 1.5.231.
-- **Toolchain:** XC32 **4.60**, MPLAB X v6.25, MCC 5.6.4 / core 5.8.4. Byg ikke med andre
-  versioner. MCC-versionen står i regenererings-commit'en (MCC-008).
+- **Toolchain:** XC32 **4.60**, MPLAB X v6.25. Byg ikke med andre versioner. App er genereret
+  med MCC 5.6.4 / core 5.8.4, BTL med MCC 5.6.2 / core 5.8.2 (se
+  `mcc-manifest-generated-success.yml` i hvert `.X`). MCC-versionen står i
+  regenererings-commit'en (MCC-008).
 - **App:** `App/SW58403.X`, kilde i `App/src`. Legato GUI (480×272, PDA TM4301B), USB host
   MSD, I²C ×3, UART1.
 - **BTL:** `BTL/SW58403BL.X`, kilde i `BTL/src`. Filsystem-bootloader over USB MSD.
@@ -33,11 +35,13 @@ komplet ombygning (se `DAYLOG.md`).
 
 ## Fælles erfaringer
 
-Gennemgået til og med: ingen endnu.
+Gennemgået til og med: USBH-011, SVC-009, BTL-017, WDT-004, MCC-008, I2C-005, GUI-002,
+HIL-010, PS-007, GIT-001.
 
 Relevante filer i `D:/Github/claude-setup/knowledge/` for dette projekt: `mcc-harmony.md`,
 `legato-gui.md`, `usb-host.md`, `bootloader.md`, `usb-servicestick.md`, `i2c.md`,
-`watchdog.md`, `baenk-automatisering.md`. Format og regler: `knowledge/README.md`.
+`watchdog.md`, `baenk-automatisering.md`, `powershell.md`, `git.md`. Format og regler:
+`knowledge/README.md`.
 
 ## Sessionsafslutning
 

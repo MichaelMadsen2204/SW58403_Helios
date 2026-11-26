@@ -17,7 +17,10 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 1. **Bevis bygget på branch `cleanup/backupfiler`:** Backupfilerne i `App/src` er slettet
    der, men App er endnu ikke bygget uden dem. Kør Clean and Build af `SW58403.X`. Er
    bygget rent, så merge branchen til `main`.
-2. Plan for 2.0-ombygningen (PRD → issues).
+2. **PRD for 2.0 (#1):** Rammebeslutningerne er truffet og står i issuet. Næste skridt er at
+   gennemgå 1.0's adfærd modul for modul og derefter skrive PRD'en med D333 som skabelon.
+   Start i en ny session.
+3. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
 
@@ -27,6 +30,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
   `screen_Action_clean.c` og `ir_control.zip`. `configurations.xml` nævner ingen af dem, ingen
   kildefil `#include`'r dem, og `Ny mappe/` står ikke i nogen include-sti. Filerne kan hentes
   tilbage fra `v1.0`. Bygget er endnu ikke bevist.
+- Rammen for 2.0 er besluttet (#1). 2.0 er en ny arkitektur med 1.0's adfærd, og Auto Standby
+  er den eneste nye feature, 1:1 som på D333. D333 er skabelonen. Koden ligger i en ny mappe ved siden af `App/`.
+  App 2.0 skal kunne installeres via BTL 1.0. En selvopdaterbar BTL 2.0 er et separat forstudie (#2).
 - Repoet er sat op med `.gitignore` og `.gitattributes`, som følger Volantes regler.
   Byggeoutput, MCC-backups og lokal IDE-tilstand ignoreres. Al tekst gemmes som LF, og
   `*.cmd` og `*.bat` checkes ud som CRLF.

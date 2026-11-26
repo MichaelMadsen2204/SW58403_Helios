@@ -8,7 +8,7 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
   det faste sammenligningspunkt for 2.0.
   Det er ikke tjekket, om den er bit-identisk med det image, der er i marken.
 - App og BTL bygger rent fra en frisk klon (bekræftet 2026-11-26), også efter oprydningen af
-  backupfiler i `App/src`.
+  backupfiler i `App/src`, og efter at `nbproject/Makefile-*.mk` er taget ud af git.
 - Mål: FW 2.0 som en komplet ombygning med lagdeling og host-tests, som på
   Volante/D333. En UART-testramme skal med fra første version af 2.0
   (`knowledge/baenk-automatisering.md`).
@@ -31,6 +31,10 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
   kildefil `#include`'r dem, og `Ny mappe/` står ikke i nogen include-sti. Filerne kan hentes
   tilbage fra `v1.0`. Michael har bekræftet, at App og BTL bygger rent efter oprydningen,
   og branchen er merget til `main`.
+- Branch `chore/ignorer-makefiler`: MPLAB X skriver `nbproject/Makefile-*.mk` om ved hvert byg
+  med maskinafhængig `ProjectDir` og flag-hashes. Filerne er derfor fjernet fra git og
+  ignoreret (MCC-007). Michael har bekræftet, at en frisk klon uden dem bygger rent, både App
+  og BTL. Branchen er merget til `main`.
 - Rammen for 2.0 er besluttet (#1). 2.0 er en ny arkitektur med 1.0's adfærd, og Auto Standby
   er den eneste nye feature, 1:1 som på D333. D333 er skabelonen. Koden ligger i en ny mappe ved siden af `App/`.
   App 2.0 skal kunne installeres via BTL 1.0. En selvopdaterbar BTL 2.0 er et separat forstudie (#2).

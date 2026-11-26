@@ -14,15 +14,19 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **Ryd op i backupfilerne i `App/src`:** `Ny mappe/`, `bu/`, `IR_Control_bu.c`,
-   `app_usb_cmd_BU.c`, `_On_Off_Control.c`, `screen_Action_clean.c` og `ir_control.zip`.
-   Tjek først i `nbproject/configurations.xml`, om nogen af dem bygges med. Gør det på en
-   feature-branch, og bevis, at bygget er rent bagefter.
+1. **Bevis bygget på branch `cleanup/backupfiler`:** Backupfilerne i `App/src` er slettet
+   der, men App er endnu ikke bygget uden dem. Kør Clean and Build af `SW58403.X`. Er
+   bygget rent, så merge branchen til `main`.
 2. Plan for 2.0-ombygningen (PRD → issues).
 
 ## Log
 
 ### 2026-11-26
+- Branch `cleanup/backupfiler`: Følgende 10 backupfiler er slettet fra `App/src`: `Ny mappe/` (4 filer),
+  `bu/Dac_Control.c`, `IR_Control_bu.c`, `app_usb_cmd_BU.c`, `_On_Off_Control.c`,
+  `screen_Action_clean.c` og `ir_control.zip`. `configurations.xml` nævner ingen af dem, ingen
+  kildefil `#include`'r dem, og `Ny mappe/` står ikke i nogen include-sti. Filerne kan hentes
+  tilbage fra `v1.0`. Bygget er endnu ikke bevist.
 - Repoet er sat op med `.gitignore` og `.gitattributes`, som følger Volantes regler.
   Byggeoutput, MCC-backups og lokal IDE-tilstand ignoreres. Al tekst gemmes som LF, og
   `*.cmd` og `*.bat` checkes ud som CRLF.

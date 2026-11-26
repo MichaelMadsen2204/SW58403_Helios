@@ -6,7 +6,7 @@
 **/*.X/.generated_files/
 **/*.X/queuelogs/
 **/*.X/nbproject/private/
-**/*.X/nbproject/Makefile-local-*.mk
+**/*.X/nbproject/Makefile-*.mk
 **/*.X/nbproject/Makefile-genesis.properties
 **/*.X/nbproject/Package-*.bash
 **/*.X/defmplabxtrace.log*

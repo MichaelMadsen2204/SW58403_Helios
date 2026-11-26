@@ -4,7 +4,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Status
 
-- FW 1.0 er ude i marken. `main` indeholder den importerede 1.0-kode (`271ed26`).
+- FW 1.0 er ude i marken. Den importerede 1.0-kode er tagget `v1.0` (`271ed26`), som er
+  det faste sammenligningspunkt for 2.0.
   Det er ikke tjekket, om den er bit-identisk med det image, der er i marken.
 - App og BTL bygger rent fra en frisk klon (bekræftet 2026-11-26).
 - Mål: FW 2.0 som en komplet ombygning med lagdeling og host-tests, som på
@@ -17,9 +18,7 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    `app_usb_cmd_BU.c`, `_On_Off_Control.c`, `screen_Action_clean.c` og `ir_control.zip`.
    Tjek først i `nbproject/configurations.xml`, om nogen af dem bygges med. Gør det på en
    feature-branch, og bevis, at bygget er rent bagefter.
-2. Overvej at tagge 1.0-grundlaget (`v1.0`), så 2.0-ombygningen har et fast
-   sammenligningspunkt.
-3. Plan for 2.0-ombygningen (PRD → issues).
+2. Plan for 2.0-ombygningen (PRD → issues).
 
 ## Log
 

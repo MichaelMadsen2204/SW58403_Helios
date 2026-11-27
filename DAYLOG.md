@@ -18,15 +18,14 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. I område 6 (GUI) er
    de 8 fund placeret, legacy-afsnittet i §4.10 er skrevet, og kravene til skærmkatalog og skift
    (FR-800–812, FR-880–882) er skrevet, og det samme er SYSTEM ERROR (FR-830) og Auto Standby
-   (FR-815, FR-816) og Pickup og AV (FR-850, FR-855, FR-861) (2026-11-27, se log). Kun GUI-001
-   mangler i område 6.
+   (FR-815, FR-816), Pickup og AV (FR-850, FR-855, FR-861) og GUI-001 (§3.3, §9.39)
+   (2026-11-27, se log). **Område 6 er gennemgået.** Næste område er 7.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
    - **Nyt i D333 siden 2026-10-28, som Helios skal tage stilling til:** §9.38 gammel ACK
      fjernes før kommandofilen (#417, §4.14). FR-861/§9.42 og FR-850/§9.43 er afgjort
      (Helios §9.37, §9.38), og §9.40 og E31 er afgjort med FR-830.
-   - **Område 6:** GUI-001 i §3.3 mangler (undersøg Helios' vælgerskærme).
    - **Område 7:** Bekræft adresserne `0x0B` (pickup) og `0x06` (AV), og afgør, hvordan en `avInp`
      med andre bit end 0 og 1 tolkes (fx `0xFF` fra en tom EEPROM).
    - Foreslå §9.35 (baglys på overlayet) og §9.36 (menu-exit ved annullering) tilbage til D333.
@@ -51,6 +50,18 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 6, GUI-001)
+
+GUI-001 er skrevet i §3.3 sammen med §9.39 (Michael: én teknik, D333's):
+
+- 1.0 har ikke GUI-001-fejlen, men bruger to teknikker. A er toggleable med `setPressed`, og den
+  valgte knap er disabled. B skifter released-image, og den valgte knap er disabled.
+- Under A kører `OnShow` handlerne, fordi Legatos `setPressed` kalder `pressedEvent` og
+  `releasedEvent`. IR, green bias og pickup har ingen vagt mod det.
+- 2.0: Knapperne er ikke toggleable, og released-image skiftes ud fra modellen. Det gælder også
+  AV 3/4. Visningen kalder ingen handler.
+- Ikke undersøgt: om en disabled knap tegnes anderledes.
 
 ### 2026-11-27 (område 6, Pickup og AV)
 

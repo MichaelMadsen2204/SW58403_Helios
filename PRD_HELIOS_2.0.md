@@ -196,8 +196,29 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
 
   - Alle kilder er dækket. `avenir48` mangler Æ, Ø, Å og `! ' ^ _ ~`, men viser kun store
     bogstaver, cifre og `%`.
-- **GUI-001 (vedvarende valg-indikation):** _Helios' vælgerskærme er ikke undersøgt endnu
-  (område 6)._
+- **GUI-001 (vedvarende valg-indikation, beslutning 2026-11-27):** Alle vælgerknapper bruger
+  én teknik, som [D333]. Knappen er ikke toggleable. Valget vises ved at skifte released-image
+  (valgt eller ikke valgt) ud fra modellens værdi, og det valgte valg i en eksklusiv vælger er
+  disabled. Visningen kalder aldrig `setPressed`, så synkronisering ved `OnShow` eller ved
+  ændring udefra kører ingen handler (§9.39).
+  - Det gælder også AV 3/4, som kan vælges samtidig. Handleren vender bittet i modellen, og
+    knappen tegnes ud fra modellen.
+  - **Legacy (kode læst):** GUI-001-fejlen findes ikke i 1.0, men der er to teknikker:
+    - **A, toggleable med `setPressed`, og den valgte knap er disabled:** IR-kilde, green bias,
+      pickup, DSD LP-filter, digital gain og simple view. Handleren rører ikke sin egen knap
+      (fx `Screen_IR_Source_Setup.c:13-28`, `Screen_Pickup_Selection.c:33-48`). Legato sætter
+      TOGGLED ved touch-up (`legato_widget_button.c:573-587`), og disable forhindrer, at knappen
+      trykkes op igen. Men `setPressed(TRUE)` kalder `pressedEvent`, og `setPressed(FALSE)` kalder
+      `releasedEvent` (`legato_widget_button.c:197-228`). Derfor kører `OnShow` handlerne.
+      Digital og AV har en vagt (`Screen_Digital_Setup.c:103`, `Screen_AV_Setup.c:88`), mens IR,
+      green bias og pickup ikke har. IR kalder fx `IR_SOURCE_Set()` ved hver visning
+      (`Screen_IR_Source_Setup.c:37-50`).
+    - **B, released-image skiftes, og den valgte knap er disabled:** display-mode
+      (`Screen_Display_Setup.c:161-204`), level match og inputvalg på action
+      (`screen_Action.c:387-471`). Action-knapperne er dog toggleable i Composer med
+      `smallSelected2` som pressed-image (`le_gen_screen_actionScreen.c:205-208`).
+    - AV 3/4 er toggleable med `OnReleased`-handlere (`Screen_AV_Setup.c:20-63`).
+  - Om en disabled knap tegnes anderledes end en enabled, er ikke undersøgt.
 
 ---
 
@@ -212,7 +233,7 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 | 3 | §4.2–4.3 Input, level, level match | `Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c` | Gennemgået 2026-11-27 |
 | 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | Gennemgået 2026-11-27 |
 | 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | Gennemgået 2026-11-27 |
-| 6 | §4.10 GUI | `screen_Action.c` og øvrige `Screen_*.c` | |
+| 6 | §4.10 GUI | `screen_Action.c` og øvrige `Screen_*.c` | Gennemgået 2026-11-27 |
 | 7 | §4.11 Persistens | `eeProm_Functions.c` | |
 | 8 | §4.12 UART-testinterface | `uart_control.c` | |
 | 9 | §4.14 Servicestick | `app_usb_cmd.c` | |
@@ -1704,6 +1725,13 @@ adfærd, er markeret **(adfærd)**.
       (`Screen_Input_Level_Match.c:86-91`), selvom offsetten ikke bruges (FR-355).
     - **2.0:** Et AV-input er dæmpet, kan ikke vælges og viser "AV". Den gemte offset bevares.
     - **Synlig adfærd:** Kun på skærmen. Lyden er uændret.
+39. **Vælgerknapper tegnes ud fra modellen, uden toggle** (beslutning 2026-11-27, §3.3
+    GUI-001), som [D333].
+    - **Legacy:** To teknikker. På IR-kilde, green bias og pickup kører `OnShow` knappernes
+      handlere via `setPressed` uden vagt (§3.3).
+    - **2.0:** Én teknik, hvor knappen er ikke-toggleable, og released-image skiftes. Visning kalder
+      ingen handler, og kun et tryk ændrer modellen.
+    - **Synlig adfærd:** Ingen tilsigtet. Valget vises som i 1.0.
 
 ---
 

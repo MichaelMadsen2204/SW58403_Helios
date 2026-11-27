@@ -742,6 +742,22 @@ _Område 7._ EEPROM-layout fra 1.0 og ledige adresser til Auto Standby står i #
 
 _Område 8._ Skal opfylde HIL-003 (boot-linje med reset-årsag, livsprøve, faste fejlrammer).
 
+**Reset-årsag (WDT-005, beslutning 2026-11-27).** Legacy bruger slet ikke RCON (App og
+BTL).
+
+- **Ved opstart:** Hele RCON læses én gang og gemmes, før noget tolkes. Derefter ryddes
+  alle årsagsbits, også dem over 0x3FF:
+  - bit 29 (`HVDCORE`/`HVD1V8R`),
+  - `VBAT` (16) og `VBPOR` (17),
+  - `BCFGFAIL` (26) og `BCFGERR` (27).
+- **Bit 30–31** maskeres væk, for de bærer ingen information (WDT-004 og WDT-005, målt på
+  PIC32MX).
+- **Boot-linjen** viser den gemte værdi.
+- **Bænkbevis:** Tolkningen bevises med en baseline af den rå RCON ved en kendt POR og en
+  kendt MCLR, før den bruges. Det er ikke målt på PIC32MZ DA.
+- **[D333]** rydder kun WDTO og DMTO (`drv_sysio.c:149`, `:318`). De andre årsagsbits kan
+  derfor slæbe med ind i senere boot-linjer (§8).
+
 ### 4.13 Bootloader-kontrakt
 
 App 2.0 SKAL kunne installeres via BTL 1.0. Bindingerne står i kommentaren på #1 og
@@ -802,7 +818,7 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | Emne | Kilde | Genbrug | Status i D333 |
 |---|---|---|---|
 | Eksekveringsmodel, superloop med flag-ISR'er | [D333] NFR-010/011, `SW_U3_REBUILD` | Mekanisme 1:1 | _tjekkes_ |
-| DMT-watchdog og reboot-loft | [D333] NFR-013 | 1:1 | Bænkbevist 2026-10-21 ([D333] NFR-013) |
+| DMT-watchdog og reboot-loft | [D333] NFR-013 | 1:1, undtagen RCON-rydningen, som følger §4.12 (WDT-005) | Bænkbevist 2026-10-21 ([D333] NFR-013) |
 | Auto Standby | [D333] FR-107, FR-815, FR-816 (`app_standby.c`) | 1:1 (#1) | _tjekkes_ |
 | Power-sekvenser som tick-baseret state machine | [D333] `svc_power.c` | Mekanisme; trin og tider fra Helios (§4.1) | _tjekkes_ |
 | Standby i deep sleep/IDLE med opvågning via INT0/CN | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] | — |

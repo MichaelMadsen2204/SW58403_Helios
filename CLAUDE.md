@@ -35,7 +35,7 @@ komplet ombygning (se `DAYLOG.md`).
 
 ## Fælles erfaringer
 
-Gennemgået til og med: USBH-011, SVC-009, BTL-017, WDT-004, MCC-008, I2C-005, GUI-002,
+Gennemgået til og med: USBH-011, SVC-009, BTL-017, WDT-005, MCC-008, I2C-005, GUI-002,
 HIL-010, PS-007, GIT-001.
 
 Relevante filer i `D:/Github/claude-setup/knowledge/` for dette projekt: `mcc-harmony.md`,

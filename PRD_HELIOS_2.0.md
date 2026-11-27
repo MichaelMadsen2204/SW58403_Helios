@@ -1511,12 +1511,14 @@ adfærd, er markeret **(adfærd)**.
    synlige adfærd (tider og rækkefølge) bevares. Kilde: tabellen i §3.2.
 2. **Gating i `tasks.c` flyttes til Application Layer (NFR-015).** GLCD opdateres som i 1.0
    kun ved ON, opstart eller AC-fejl. USB følger ikke længere `!powerOnFlg`, men gaten i §9.52.
-3. **(adfærd) UART-testinterfacet er altid aktivt** (beslutning 2026-11-27). Parseren kører i
-   alle tilstande: opstart, standby, menu og normal drift. Kommandoer, som tilstanden ikke
-   tillader, afvises med en fast fejlramme, men ignoreres aldrig tavst. Livsprøve og
-   statusforespørgsler svarer altid (HIL-003). Legacy behandler kun `uartCtrl` i
-   `APP_STATE_IDLE` og på action- og simple-view-skærmen efter opstart (`app.c:192`, `:214`,
-   `:280`). Hvilke kommandoer der er tilladt i hvilken tilstand, fastlægges i §4.12.
+3. **(adfærd) UART-RX læses i alle vågne tilstande** (beslutning 2026-11-27, præciseret af §9.51
+   i område 8). Legacy læser kun RX i `APP_STATE_IDLE` og på action- og simple-view-skærmen efter
+   opstart (`app.c:192`, `:214`, `:280`). Ellers bliver bytes liggende og giver overrun (§9.46).
+   - **2.0:** RX tømmes i alle tilstande, hvor MCU'en er vågen, så der aldrig opstår overrun.
+   - **Udførelse:** Kommandoer udføres kun i vinduet i §9.51 og FR-1200. Uden for vinduet kasseres
+     bytes uden svar.
+   - Den oprindelige formulering i område 2 ("altid aktiv, afvises med fejlramme, livsprøven svarer
+     altid") er erstattet af §9.51.
 4. **AC-kontrollen afgøres ved majoritet** (beslutning 2026-11-27). Legacy afgør spænding og
    "venstre forsyning mangler" på ét sample af `AC_RESULT` og `AC_RESET`. Den såkaldte
    50 ms-ventetid er i praksis 10 tik × 100 µs (`ac_check.c:94-98`, `:195-197`, `:107`).
@@ -1790,7 +1792,7 @@ adfærd, er markeret **(adfærd)**.
       den straks.
     - `uiOverlayActive` sættes aldrig til 1.
     - Kun `filterSimpleView_OnShow` sætter `APP_STATE_IDLE` (`:179`), så UART behandles på det
-      ene overlay og ikke på de to andre. Forskellen forsvinder med §9.3.
+      ene overlay og ikke på de to andre. Forskellen forsvinder med vinduet i §9.51.
 
     I 2.0 modelleres overlays efter NFR-016, hvor tilstand og skærm er adskilt. Ingen adfærd
     ændres.

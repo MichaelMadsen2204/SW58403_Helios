@@ -91,8 +91,8 @@ Servicesticken er læst i `app_usb_cmd.c` (uændret siden `v1.0`), `tasks.c:93-1
 - **Rettet:** §9.2 sagde "USB kun i standby". Den henviser nu til §9.52.
 - **Fælles erfaring:** Tilføjelsen "Efterprøvet i Helios" i SVC-009 er forkert, for CPU'en sover i
   standby. Rettelsen er foreslået og venter på Michael.
-- **Bemærket fra område 8:** §9.3 ("altid aktiv", fejlramme) modsiger §9.51 (bytes uden for
-  vinduet kasseres).
+- **Bemærket fra område 8:** §9.3 ("altid aktiv", fejlramme) modsagde §9.51 (bytes uden for
+  vinduet kasseres). **Rettet:** §9.3 dækker nu kun RX-tømning, og §9.51 gælder.
 
 ### 2026-11-27 (område 8, læst)
 
@@ -462,6 +462,8 @@ De 8 fund fra log-posten "område 6, læst" er placeret (Michael):
 
   Guarden i `app.c:187` er død kode. Det hele står i PRD §3.2 og §9.
 - Beslutning: UART-testinterfacet er altid aktivt i 2.0, i alle tilstande (PRD §9.3).
+  _Erstattet 2026-11-27 af §9.51: Kommandoer udføres kun i et vindue. §9.3 dækker nu kun, at RX
+  tømmes i alle tilstande._
 - Beslutning: Helios 2.0 genbruger D333's testede løsninger. Ved konflikt gælder D333's kode
   og Helios' parametre, som brugeren kan mærke (PRD §1 og §8).
 - Ventende: claude-setup er 8 commits bagud og har ucommittede ændringer i `PLAN.md` og

@@ -360,6 +360,54 @@ adfærd, er markeret **(adfærd)**.
    statusforespørgsler svarer altid (HIL-003). Legacy behandler kun `uartCtrl` i
    `APP_STATE_IDLE` og på action- og simple-view-skærmen efter opstart (`app.c:192`, `:214`,
    `:280`). Hvilke kommandoer der er tilladt i hvilken tilstand, fastlægges i §4.12.
+4. **AC-kontrollen afgøres ved majoritet** (beslutning 2026-11-27). Legacy afgør spænding og
+   "venstre forsyning mangler" på ét sample af `AC_RESULT` og `AC_RESET`. Den såkaldte
+   50 ms-ventetid er i praksis 10 tik × 100 µs (`ac_check.c:94-98`, `:195-197`, `:107`).
+   2.0 genbruger [D333] `SvcSystem_MeasureAcVariant` (`svc_system.c:68-113`: 9 samples med
+   100 µs imellem, majoriteten afgør) og bruger samme majoritet på `AC_RESET`. Den synlige
+   adfærd er den samme. Sample-antal og afstand skal bænktestes (D333 §11.9).
+5. **(adfærd) Spændingssettingen seedes ved første boot** (beslutning 2026-11-27), som
+   [D333] FR-111.
+   - **Legacy:** Er feltet tomt (`0xFF`), bruges HIGH, og der skrives intet
+     (`On_Off_Control.c:1207-1209`). En uprogrammeret enhed på et LOW-net viser derfor
+     mismatch-skærmen.
+   - **2.0:** Den målte majoritetsværdi (§9.4) skrives i feltet, og `SP_RELAY` sættes efter
+     den.
+   - **Ingen seeding uden venstre forsyning:** Mangler venstre forsyning (`AC_RESET` lav ved
+     majoritet), seedes der ikke, og `leftPowerMissingScreen` vises som i legacy.
+   - **Gemt værdi gælder:** Bagefter er EEPROM-værdien autoritativ, så et senere net med en
+     anden spænding giver stadig mismatch.
+   - **Omprogrammering:** sker via USB-stick som i dag.
+6. **Noise-guarden udløber på et tick** (beslutning 2026-11-27).
+   - **Legacy:** Udløbet tjekkes kun, når `wakeUp()` kaldes igen (`On_Off_Control.c:777`),
+     og det sker kun ved en ny IR- eller INT0-hændelse eller et nyt knaptryk. Efter en
+     støjopvågning uden en sådan hændelse bliver MCU'en vågen i standby (kode læst, ikke set
+     på bænken).
+   - **2.0:** Guarden evalueres i hvert tick i standby, så enheden altid er tilbage i sleep
+     senest `NOISE_GUARD_MS` = 500 ms efter en opvågning uden en gyldig årsag.
+   - **Synlig adfærd:** uændret.
+7. **Udfald af venstre forsyning udløser sluk i hver ON-periode** (beslutning 2026-11-27).
+   - **Legacy:** Låsen `OffSeqDoneFlg` nulstilles aldrig (`On_Off_Control.c:1270`, `:1304`).
+     Deep sleep nulstiller den via reset, men IDLE-vejen gør ikke. Efter en manuel sluk med
+     aktivt 12V-link ignoreres et nyt udfald derfor i næste ON-periode.
+   - **2.0:** Låsen nulstilles ved starten af hver ON-sekvens.
+8. **OFF gemmer kun uden for opstart** (beslutning 2026-11-27), som [D333] FR-105.
+   - **Legacy:** Input og digital setup gemmes ved hver OFF, også under opstart
+     (`On_Off_Control.c:1106-1107`). EEPROM læses allerede i `initAmp()` (`:622`), men under
+     opstart kan RAM afvige fra EEPROM. Fx sætter ON5 `curInp` til 1, hvis det input, der
+     var valgt sidst, kræver et modul, der mangler (`:1018-1024`).
+   - **2.0:** Der gemmes kun, når indstillingerne er indlæst og opstarten er afsluttet.
+9. **Død power-kode videreføres ikke** (beslutning 2026-11-27). Kun den levende AC-vej
+   (`ACCHK_*`, §4.1) er spec. Følgende kan ikke nås og overføres ikke:
+   - `APP_LEFT_AC_ERROR`, som kun sættes i den udkommenterede
+     `WaitFor_AC_RESET_High_100ms` (`On_Off_Control.c:511`, `:520`). Dermed er
+     `updateLeftAcMissingScreen` (`:449`, `app.c:266-268`), grenen i OFF (`:1143-1148`) og
+     betingelsen i `initAmp` (`:600`) også døde.
+   - `AC_CHECK()` (`:403-447`).
+   - Mismatch-grenen i `onOffSekvens` (`:1231-1238`), fordi `ACCHK_Done()` kun er sand ved
+     et OK-resultat.
+
+   Ingen adfærd ændres.
 
 ---
 

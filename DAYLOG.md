@@ -15,10 +15,11 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1 (eksekveringsmodel) og område 2
-   (power) er gennemgået. Næste skridt er **område 3: input, level og level match**
-   (`Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c`) til §4.2
-   og §4.3. Tabellen i PRD'ens §4 viser rækkefølgen og status. Arbejdsgang:
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–3 er gennemgået. Næste skridt er
+   **område 4: DAC og U26** (`Dac_Control.c`, `MB_IOexp_U26_Control.c`,
+   `Screen_Digital_Setup.c`) til §4.6. FR-203 (DAC-sekvens ved digitalt skift), green bias og
+   fejl-triggere (FR-106) venter på område 4. Tabellen i PRD'ens §4 viser rækkefølgen og
+   status. Arbejdsgang:
    - Hver legacy-adfærd mærkes `kode læst fil:linje`.
    - Det, der ligner en fejl, placerer Michael i §9 (rettes) eller §10 (bevares), én ad gangen.
    - Brug kommentaren på #1 (BTL 1.0's bindinger og kravene fra de fælles erfaringer) og #3
@@ -34,6 +35,24 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    - GUI-002 er for snæver. Composer kan også inkludere eksplicitte glyf-intervaller.
 
 ## Log
+
+### 2026-11-27 (område 3)
+- Område 3 (input, volumen, level match, balance og AV) er gennemgået i PRD §4.2, §4.3, §3.3,
+  §5, §8, §9.10–9.12, §10.1 og §11.4 (kode læst).
+- **D333-genbrug:** `drv_volctl`, `svc_volume`, `svc_mute`, `svc_input` og `app_audio_ctrl`
+  er bænkbevist på D333 (#54, #169, #170, #173–175).
+- **Helios-parametre:**
+  - 11 inputs, AV på input 3 og 4 med indeks 66, og −6 dB på input 4 og 5.
+  - To expandere (L og R) med indeks 0–84 og make-before-break i tre faser på 2 ms.
+  - Balance og start/max-grænserne 0–66 og 20–84.
+- **Beslutninger:**
+  - Relæ-indekset har altid loft ved 84 (§9.10).
+  - Mute sætter niveauet til 0 før relæerne, som på D333 (§9.11). Helios er en forforstærker.
+  - Ingen IR-guard under make-before-break (§9.12).
+  - Balance bevares (§10.1).
+  - Legato-kapaciteten afledes af bufferen (NFR-021).
+- **Åbent:** Er det 1 dB pr. relæ-trin på Helios (§11.4)?
+- FR-320 (balance) er et nyt nummer. Det er ikke tjekket, at D333 ikke bruger det.
 
 ### 2026-11-27 (område 2)
 - Område 2 (power) er gennemgået i PRD §2, §4.1, §5, §8 og §9.4–9.9 (kode læst).

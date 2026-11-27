@@ -140,6 +140,14 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
   er current, og kun fra main-loopet. Legacy-guarden i `app.c:187`
   (`if (!legato_getCurrentScreen() == screenID_actionScreen)`) er død kode: `!x` giver 0
   eller 1, og `screenID_actionScreen` er 2 (`le_gen_init.h:42`), så betingelsen er aldrig sand.
+- **NFR-021:** Den kapacitet, der gives til `leFixedString_Constructor`, afledes altid af
+  bufferen (`sizeof(buf) / sizeof(buf[0])`) og skrives aldrig som et tal.
+  - **Legacy:** Kapaciteten er 16, men bufferne har kun 9 elementer
+    (`Screen_Input_Level_Match.c:13-18`, `:203-233`) og 8 elementer
+    (`Screen_Volume_Settings.c:23-24`, `:146`, `:162`).
+  - Der sker intet overløb i praksis, for den længste tekst er "+8 dB". Men den grænse,
+    som Legato håndhæver, er forkert.
+  - De øvrige `Screen_*.c` tjekkes i område 6.
 - GUI-idiomer, der skal bevares (GUI-001/002): _udfyldes under område 6._
 
 ---
@@ -152,7 +160,7 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 |---|---|---|---|
 | 1 | §3.2 Eksekveringsmodel | `main.c`, `app.c`, `app.h`, `tasks.c` | Gennemgået 2026-11-27 |
 | 2 | §4.1 Power | `On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c` | Gennemgået 2026-11-27 |
-| 3 | §4.2–4.3 Input, level, level match | `Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c` | |
+| 3 | §4.2–4.3 Input, level, level match | `Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c` | Gennemgået 2026-11-27 |
 | 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | |
 | 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | |
 | 6 | §4.10 GUI | `screen_Action.c` og øvrige `Screen_*.c` | |
@@ -374,6 +382,36 @@ fra [D333] står i klammer.
   (`screen_Action.c:808-815`, `:1376-1391`, `IR_control.c:169`, `:178`).
 - Mute virker også på et AV-input (`screen_Action.c:529`).
 
+**Krav til 2.0.** Mekanismen er [D333]'s `svc_input`, `svc_mute` og `app_audio_ctrl` (§8).
+Inputs, relæbits og tider er Helios' egne.
+
+- **FR-200 (inputs):** Der er 11 inputs som i legacy.
+  - Input 6 kræver phono-modul, og input 7–11 kræver DAC-modul.
+  - Mangler det modul, som det gemte input kræver, vælges input 1 ved tænding.
+- **FR-201 (input-relæer):** Et analogt input n sætter bit n−1 i U26 byte 0. De digitale
+  inputs deler bit 6. Bit 7 (output-mute) røres ikke.
+- **FR-202 (inputskift):** Et skift er altid en transition-mute i `svc_mute` og blokerer
+  aldrig (NFR-011).
+  - Er det gamle eller det nye input analogt, mutes der efter §9.11. Ved digital → digital
+    springes det analoge mute over, men holdet gælder stadig.
+  - Holdet varer 2000 ms, hvis niveauet er over 0 eller inputtet er AV, og ellers 200 ms.
+  - Under holdet ignoreres volumentrin.
+  - Når holdet udløber, unmutes der kun, hvis niveauet er over 0 eller inputtet er AV, og
+    der ikke er user-mute.
+  - Legacy's blokerende ventetid på 20 ms bliver en tilstand.
+- **FR-203 (DAC-sekvens ved digitalt skift):** fastlægges i område 4.
+- **FR-204 (−6 dB):** Relæet er til på input 4 og 5.
+- **FR-206 (persistens):** Input gemmes efter §9.8. Adressen fastlægges i område 7.
+- **FR-207 (valg):**
+  - Input vælges via touch, IR og UART (område 8).
+  - Op/ned wrapper ikke og springer input 6 over, hvis phono-modulet mangler.
+  - IR-kode 0 vælger input 10, men kun med DAC-modul.
+- **FR-355 (AV):**
+  - Input 3 og/eller 4 kan udpeges som AV.
+  - På et AV-input får begge kanaler det faste relæ-indeks 66, uden balance, level match og
+    digital gain.
+  - Volumentrin ignoreres fra alle kilder, men mute er tilladt.
+
 ### 4.3 Volumen og level match
 
 _Område 3._ [D333]-løsningen er `drv_volctl` og `svc_volume` (§8).
@@ -393,7 +431,7 @@ _Område 3._ [D333]-løsningen er `drv_volctl` og `svc_volume` (§8).
   2. Alle tre bytes = `ny | gammel`.
   3. Alle tre bytes = `ny`.
 
-  IR-interruptet er slået fra under hele sekvensen. [D333: to faser, 1 ms pr. fase.]
+  IR-interruptet er slået fra under hele sekvensen (§9.12). [D333: to faser, 1 ms pr. fase.]
 - **Relæ-indeks pr. kanal** (`Level_Control.c:45-73`), hvor `bal` er `leftBal` eller
   `rightBal` (`ui_globals.c:131-132`):
   - **Analogt input:** `curLvl + bal + inpSens[curInp]`, med loft ved 84.
@@ -456,6 +494,56 @@ _Område 3._ [D333]-løsningen er `drv_volctl` og `svc_volume` (§8).
 - Menuen er muted, så en ændring kan først høres, når menuen lukkes.
 
 [D333: offset = `inpSens/2` i trin på 2 dB.]
+
+**Krav til 2.0.** Mekanismen er [D333]'s `drv_volctl` og `svc_volume` (§8). Tabeller,
+grænser og tider er Helios' egne.
+
+- **FR-300 (attenuator):**
+  - To expandere på I2C3: U16 (`0x22`) til venstre kanal og U20 (`0x23`) til højre.
+  - Relæ-indeks 0–84.
+  - Tabellerne overføres 1:1 fra legacy (`ui_globals.c:134-150`), og de skrives til
+    register `0x84`.
+- **FR-301 (make-before-break):**
+  - Tre faser som i legacy, skiftevis L og R, med 2 ms efter hver skrivning.
+  - Ventetiden er en tilstand og ikke en busy-wait (NFR-011).
+  - Der er ingen IR-guard (§9.12).
+- **FR-302 (relæ-indeks):** Indekset beregnes pr. kanal i `SvcVolume_SetContext`:
+  - **Analogt input:** `niveau + balance + level match`.
+  - **Digitalt input med digital gain:** `niveau + 6 + balance`.
+  - **Digitalt input uden digital gain:** `niveau + balance`.
+  - **AV:** fast 66.
+
+  Alle veje har loft ved 84 (§9.10).
+- **FR-303 (start- og maxniveau):**
+  - Startniveauet ligger mellem 0 og 66, og maxniveauet mellem 20 og 84.
+  - De følger hinanden som i legacy og klemmes ind i grænserne ved indlæsning.
+  - Defaults er start 0 og max 84.
+  - Værdierne gemmes, når skærmen forlades.
+  - Ved tænding er niveauet lig startniveauet.
+- **FR-304 (repeat):**
+  - Touch giver ét trin ved tryk og derefter et trin hver 120 ms efter 400 ms.
+  - Repeat stopper ved 0 eller max, efter 84 gentagelser, eller når touch har været uden
+    opdatering i 250 ms eller er uden for knappen.
+  - Repeat er tick-baseret i main-loopet (§9.1).
+  - IR giver ét trin pr. kode.
+- **FR-305 (mute og volumentrin):**
+  - Vol-op fra 0 eller fra user-mute unmuter. Vol-ned unmuter aldrig.
+  - Niveau 0 på et input, der ikke er AV, giver auto-mute. Det er ikke en user-mute, og
+    mute-knappen deaktiveres.
+- **FR-310 (user-mute):** Mute kan kun slås til og fra, når niveauet er over 0 eller
+  inputtet er AV. Sekvensen følger §9.11.
+- **FR-314 (menu):**
+  - Når menuen åbnes, mutes der.
+  - Når menuen lukkes, skrives niveauet igen, og der unmutes, hvis niveauet er over 0 eller
+    inputtet er AV, og der ikke er user-mute.
+- **FR-320 (balance, Helios-specifik):** 13 trin med midten i trin 6. Tabellerne `leftBal`
+  og `rightBal` overføres 1:1, og adfærden bevares (§10.1). Balance gemmes sammen med
+  start- og maxniveauet.
+- **FR-860 (level match):**
+  - Hvert analogt input fra 1 til 6 har en offset på 0–8 relæ-trin, som vises som "+N dB"
+    (§11.4).
+  - Input 6 vises kun med phono-modul.
+  - Offsetten lægges kun på analoge inputs, der ikke er AV, og gemmes, når skærmen forlades.
 
 ### 4.6 DAC-modul og U26
 
@@ -634,6 +722,15 @@ adfærd, er markeret **(adfærd)**.
       vælges alligevel, fordi den er bænkbevist på [D333], og Michael ikke ser nogen ulempe.
     - **Tider:** Ventetiderne efter niveau 0 og efter relæerne skal bænktestes på Helios.
       [D333] bruger 3 ms og 15 ms (TIM-06, TIM-07).
+12. **Ingen IR-guard under make-before-break** (beslutning 2026-11-27), som [D333] §9.19.
+    - **Legacy:** IR-interruptet er slået fra under hele volumensekvensen, ca. 12 ms
+      (`Level_Control.c:126`, `:165`).
+    - **2.0:** IR-ISR'en sætter kun et flag (NFR-010), så guarden beskytter ikke længere
+      noget, og den kan koste IR-koder.
+    - **Evidens:** [D333] #173 er verificeret på bænken: 18 s med tung IR-spam gav 111 rene
+      MBB-par og ingen korruption.
+    - **Bænktest på Helios:** Testen gentages med IR-spam under volumenskift. Den kan
+      automatiseres med en Arduino som IR-kilde og UART som orakel.
 
 ---
 

@@ -25,9 +25,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    læst**, og alle 10 fund er placeret (§9.52–9.58, §10.6, se log "område 9, læst"). §4.14 er skrevet
    (FR-1300–1303). **Område 9 er gennemgået.** Alle 9 områder er nu gennemgået. **§4.13
    (bootloader-kontrakt) er gennemgået** (kontrakttabel, FR-1100, FR-1101, §9.59–9.61, §10.7, se
-   log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). Det næste er §6
-   (fejlkode- og statusmodel, ud fra [D333] §6 og FR-830) og derefter §7 (test-krav, ud fra
-   [D333] §7 og HIL-001…006).
+   log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). **§6 er skrevet** (se log "§6").
+   Det næste er §7 (test-krav, ud fra [D333] §7 og HIL-001…006).
    - **Åbent fra §4.13:** Hvad er RA5 fysisk (§11.7)? §10.7 bygger på, at kun en tekniker kan nå
      den.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
@@ -56,6 +55,16 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§6)
+
+- **Status og lag:** Statuskoder, lagansvar og NFR-030 er taget 1:1 fra [D333] §6.
+- **Fejlkilder:** En samletabel over det, der allerede er besluttet: FR-830's koder, FR-108, EEPROM
+  (§9.43), touch (§9.29), UART-RX (§9.46) og servicesticken (§9.57). Tabellen indfører ingen nye krav.
+- **`$C` (Michael):** [D333]'s `$C` svarer med effekttrinnets fejlbyte (`app_uartcmd.c:207`, læst på
+  `origin/main` `fe1787d`). Den byte findes ikke i Helios. Afgjort: en bitmaske i to sider, hvor
+  `$C:00;` giver E11–E31 og `$C:01;` giver E41/E42. Bitmasken viser de rå latch-flag, før
+  undertrykkelse og kvittering. FR-1200-tabellen og §9.50 er rettet.
 
 ### 2026-11-27 (§1 og §5)
 

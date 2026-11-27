@@ -1386,7 +1386,7 @@ fejlvejene.
 | `$9:00;` | Serienummer fra EEPROM. Andre værdier kvitteres kun | `#9:00;` og SN-linjen | legacy |
 | `$T`, `$H`, `$t`, `$S:0v;` | SN-cifre. `S` danner SN, skriver det og gemmer | `#c:0v;`, over 9 tavs | legacy, §10.5 |
 | `$B:0v;` | AC-resultatets pin | `#B:00;` eller `#B:01;`, over 9 tavs | legacy, §10.5 |
-| `$C:00;` | Fejlstatus som hex | `#C:xx;` | §9.50 |
+| `$C:00;`, `$C:01;` | Fejlstatus som bitmaske, side 0 eller 1. Andre værdier kvitteres kun | `#C:xx;` | §6, §9.50 |
 | `$D:00;`, `$D:01;` | Fritekst-kontakten fra eller til | `#D:<faktisk>;` | §9.44 |
 | `$E:00;` | Slet EEPROM til 0xFF | `#E:00;` | §9.50 |
 | `$I:01;`, `$I:02;` | I²C2: bus-clear eller registerdump | `#I:vv;` og en `[I2C2]`-linje | §9.50 |
@@ -1590,7 +1590,52 @@ Alle værdier defineres som navngivne konstanter, jf. [CONV] §5.
 
 ## 6. Fejlkode- og statusmodel
 
-Som [D333] §6. _Helios-specifikke fejlkilder udfyldes under område 2 og 4._
+Som [D333] §6, med Helios' fejlkilder og et nyt `$C`-format (beslutning 2026-11-27).
+
+**Statuskoder og lag (1:1 fra [D333]):**
+
+- Hvert modul definerer sin egen `<Modul>_Status_t`-enum ([CONV] §6), hvor `OK = 0`.
+- **Hardware-laget** melder transportfejl (timeout, NACK, busy).
+- **Service-laget** melder semantiske fejl (verify-mismatch, out-of-range, ikke-initialiseret).
+- **Application-laget** beslutter konsekvensen (retry, mute-lås, SYSTEM ERROR, fejlskærm).
+- **NFR-030:** Ingen fejl ties ihjel. En ignoreret returværdi er et brud på konventionen, medmindre
+  den er castet eksplicit til `(void)` med en begrundelse.
+
+**Fejlkilder i Helios.** Tabellen samler, hvad der allerede er besluttet. Den indfører ingen nye
+krav.
+
+| Kilde | Konsekvens | Synlig som | Krav |
+|---|---|---|---|
+| I2C2 låst (SDA eller SCL) | Mute og relæer kan ikke styres | E11 eller E12, blokerende | FR-830 |
+| U26 svarer ikke, selvom I2C2 er fri | Som ovenfor | E13, blokerende | FR-830 |
+| U16 eller U20 død (budget brugt) | Output-mute låses på U26 | E21 eller E22, blokerende | FR-830, §9.32 |
+| I2C3 låst (SDA eller SCL) | Output-mute låses på U26 | E23 eller E24, blokerende | FR-830, §9.32 |
+| DAC-indgangsvalget eskaleret | Retry-budgettet er brugt | E31, ikke-blokerende | FR-830, §9.19 |
+| Reboot-loftet er nået | Boot-stien hang for mange gange i træk | E41, ikke-blokerende | FR-830, NFR-013 |
+| Boot efter en watchdog-reset | Ingen | E42, ikke-blokerende, og `[WDT]`-linjen | FR-830, FR-1202 |
+| AC: venstre forsyning mangler, eller spændingen afviger | De analoge trin tændes ikke | AC-fejlskærmene, ingen E-kode | FR-108 |
+| EEPROM-fejl | Statuskode fra `svc_settings`. Der skrives ikke før første vellykkede load | Ingen kode. En låst EEPROM-slave giver E11/E12 | FR-830, §9.43 |
+| Touch-fejl (I2C1) | Driveren genstarter I2C1 og slipper et hængende tryk | Ingen kode | FR-830, §9.29 |
+| RX-fejl på UART1 | Fejlen ryddes, og rammen tabes | `[UART] rx-fejl <n>` | §9.46 |
+| Fejl på servicesticken | Ingen kvittering | Logtekst, ingen kvittering | §9.57 |
+
+- Helios har ingen fejlbit fra effekttrinnet og ingen gemt fejlstatus. [D333] FR-500–515 gælder
+  ikke (§4.10, §9.58).
+
+**Fejlstatus over UART (`$C`, beslutning 2026-11-27).** [D333]'s `$C` svarer med effekttrinnets
+fejlbyte (`AppError_GetCurrentStatus`, `app_uartcmd.c:207`). Den byte findes ikke i Helios, og
+FR-830's 10 koder kan ikke ligge i én byte. Derfor vælger `vv` en side:
+
+| Ramme | Svar | Bit 0 | Bit 1 | Bit 2 | Bit 3 | Bit 4 | Bit 5 | Bit 6 | Bit 7 |
+|---|---|---|---|---|---|---|---|---|---|
+| `$C:00;` | `#C:xx;` | E11 | E12 | E13 | E21 | E22 | E23 | E24 | E31 |
+| `$C:01;` | `#C:xx;` | E41 | E42 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+- `xx` er to hex-cifre med store bogstaver, som [D333] (`%02X`).
+- Hver bit er kildens eget latch-flag, før undertrykkelse og kvittering. Bitmasken kan derfor vise
+  E13 sammen med E11 og en kvitteret E31, som skærmen ikke viser. Visningsreglerne host-testes i
+  `app_health` (FR-830).
+- `$C:02;` til `$C:99;` kvitteres kun med `#C:vv;`, som `$6` og `$8`.
 
 ---
 
@@ -2135,7 +2180,8 @@ adfærd, er markeret **(adfærd)**.
       tabes bytes i stedet for, at apparatet hænger.
 50. **(nye kommandoer) Testkommandoer til fejlveje** (beslutning 2026-11-27, §4.12), som [D333]
     FR-1200. HIL-003 kræver dem. 1.0 har ingen af dem.
-    - **`$C:00;`** svarer `#C:xx;` med fejlstatus som hex (FR-830).
+    - **`$C:00;`** og **`$C:01;`** svarer `#C:xx;` med FR-830's fejlflag som bitmaske i to sider
+      (§6). [D333]'s `$C` svarer med effekttrinnets fejlbyte, som Helios ikke har.
     - **`$E:00;`** sletter hele EEPROM'en til 0xFF, så første boot kan testes ([D333] §9.15). Der
       kræves en power-cycle bagefter.
     - **`$W:vv;`** er watchdog-diagnostik ([D333] §9.33):

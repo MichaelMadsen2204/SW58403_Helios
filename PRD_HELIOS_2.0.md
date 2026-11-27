@@ -49,6 +49,7 @@ _Udfyldes under område 2–9 (busser, adresser, GPIO, interrupts)._
 
 | Element | Beskrivelse |
 |---|---|
+| Produkt | Forforstærker. [D333] er en integreret forstærker (Michael 2026-11-27). |
 | MCU | PIC32MZ2064DAR176, MPLAB Harmony 3, Legato GUI 480×272 (PDA TM4301B) |
 | Toolchain | XC32 4.60, MPLAB X v6.25, DFP `PIC32MZ-DA_DFP` 1.5.231 |
 | Forsyning i standby | MCU'en er forsynet i standby og ligger i deep sleep eller IDLE (§4.1). Forskel fra [D333], hvor U3 mister forsyningen. |
@@ -397,7 +398,7 @@ _Område 3._ [D333]-løsningen er `drv_volctl` og `svc_volume` (§8).
   `rightBal` (`ui_globals.c:131-132`):
   - **Analogt input:** `curLvl + bal + inpSens[curInp]`, med loft ved 84.
   - **Digitalt input med digital gain:** `curLvl + 6 + bal`, med loft ved 84.
-  - **Digitalt input uden digital gain:** `curLvl + bal`, uden loft.
+  - **Digitalt input uden digital gain:** `curLvl + bal`, uden loft (§9.10).
 - **Green bias** følger `curLvl` (`MB_IOexp_U26_Control.c:365-389`) og hører til område 4.
 
 **Legacy: niveau og grænser (kode læst).**
@@ -430,7 +431,7 @@ _Område 3._ [D333]-løsningen er `drv_volctl` og `svc_volume` (§8).
   - Mute åbner input-relæerne. Ved digital → digital bruges DAC-kanal-mute i stedet
     (`:259-271`).
   - Output-mute-bitten bruges kun i power-sekvenserne. [D333: niveau til 0, derefter
-    relæ-mute.]
+    relæ-mute.] 2.0 følger [D333]'s rækkefølge (§9.11).
 - **Menu:**
   - Når menuen åbnes, mutes der (`app.c:107-116`).
   - Når menuen lukkes, skrives niveauet igen, og der unmutes, hvis niveauet er over 0 eller
@@ -442,6 +443,7 @@ _Område 3._ [D333]-løsningen er `drv_volctl` og `svc_volume` (§8).
 - Balance hæver den ene kanal med op til 6 relæ-trin. Den dæmper ikke den anden kanal
   (`ui_globals.c:131-132`).
 - Balance gemmes sammen med start- og maxniveauet (`eeProm_Functions.c:316-317`).
+- Adfærden bevares (§10.1).
 
 [D333 har ingen balance (FR-300).]
 
@@ -612,12 +614,41 @@ adfærd, er markeret **(adfærd)**.
      et OK-resultat.
 
    Ingen adfærd ændres.
+10. **(adfærd) Relæ-indekset har altid loft ved 84** (beslutning 2026-11-27).
+    - **Legacy:** På et digitalt input uden digital gain er indekset `curLvl + bal`, uden
+      loft (`Level_Control.c:60-61`). Ved niveau over 78 med balance til siden når det op
+      til 90. Tabellerne har kun 85 indgange (`ui_globals.c:134-150`), så koden læser uden
+      for tabellen og skriver tilfældige relæ-bytes (kode læst, ikke set på bænken).
+    - **2.0:** Alle veje har loft ved 84, som den analoge vej og vejen med digital gain
+      (`:52-55`, `:68-72`).
+11. **(adfærd) Mute sætter niveauet til 0 før relæerne** (beslutning 2026-11-27).
+    - **Legacy:** Mute åbner kun input-relæerne, og ved digitalt input mutes DAC-kanalen
+      også. Volumenrelæerne bliver stående (`MB_IOexp_U26_Control.c:230-271`).
+    - **2.0:** [D333]'s `svc_mute` (FR-311) genbruges med Helios' aktuatorer:
+      - **Mute:** Niveauet sættes til 0, og derefter åbnes input-relæerne og mutes
+        DAC-kanalen som i legacy.
+      - **Unmute:** Relæerne lukkes, og derefter gendannes niveauet.
+      - Output-mute-bitten (U26 bit 7) bruges stadig kun i power-sekvenserne.
+    - **Begrundelse:** På [D333] beskytter rækkefølgen udgangsrelæerne i en integreret
+      forstærker. Helios er en forforstærker, så formålet er ikke det samme. Rækkefølgen
+      vælges alligevel, fordi den er bænkbevist på [D333], og Michael ikke ser nogen ulempe.
+    - **Tider:** Ventetiderne efter niveau 0 og efter relæerne skal bænktestes på Helios.
+      [D333] bruger 3 ms og 15 ms (TIM-06, TIM-07).
 
 ---
 
 ## 10. Adfærd der SKAL bevares, selv om den kan ligne en fejl
 
 _Udfyldes under område 2–9._
+
+1. **Balance hæver den ene kanal** (beslutning 2026-11-27).
+   - Balance lægger op til 6 relæ-trin til den ene kanal og dæmper ikke den anden
+     (`ui_globals.c:131-132`).
+   - Når balancen flyttes fra midten, stiger den samlede lydstyrke.
+   - Fra niveau 79 og op æder loftet på 84 balancen. Ved niveau 84 er der ingen balance på
+     analoge inputs, og efter §9.10 heller ikke på digitale.
+   - Kurven er en parameter, som brugeren kan mærke, og den følger 1.0 (§1).
+     [D333] har ingen balance.
 
 ---
 

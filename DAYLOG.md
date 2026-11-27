@@ -21,8 +21,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (FR-815, FR-816), Pickup og AV (FR-850, FR-855, FR-861) og GUI-001 (§3.3, §9.39)
    (2026-11-27, se log). **Område 6 er gennemgået.** **Område 7 er gennemgået**
    (§4.11, §9.40–9.43, se log "område 7, læst"). **Område 8 er gennemgået**
-   (§4.12, §9.44–9.51, §10.5, se log "område 8, læst"). Næste område er 9 (USB-servicestick,
-   §4.14).
+   (§4.12, §9.44–9.51, §10.5, se log "område 8, læst"). **Område 9 (USB-servicestick, §4.14) er
+   læst**, og fund 1 er placeret i §9.52. Fund 2–10 mangler (se log "område 9, læst"), og så §4.14.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -50,6 +50,41 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 9, læst)
+
+Servicesticken er læst i `app_usb_cmd.c` (uændret siden `v1.0`), `tasks.c:93-104`,
+`On_Off_Control.c` og `ac_check.c`. [D333] PRD §4.14 (FR-1300–1303) og §9.38 er læst på `origin/main`
+(`fe1787d`), og SVC-001–009 er læst.
+
+- **Filerne:** `/mnt/myDrive1/584_CMD.TXT` læses, og `584_ACK.RTF` skrives (`app_usb_cmd.c:40-41`).
+- **Kommandoer:** `VOLTAGE` eller `VOLT` med `HIGH`, `LOW`, `1` eller `0` (værdien er
+  case-insensitiv), `FW` (no-op) og `BOOT` (16-bit tæller fra 0x84). `SN:` er udkommenteret, selv om
+  headeren nævner den.
+- **Fund til placering:**
+  1. **Vinduet:** USB kører kun ved `!powerOnFlg`, men i standby sover CPU'en. Reelt er det boot-stien
+     (højst ca. 0,5 s), AC-check til ON4 (ca. 2,5 s) og mismatch-skærmen. **Placeret: §9.52** (som
+     [D333]: RUNNING og AC-fault, et mount under opstart venter). VBUS i ON står i §11.6.
+  2. `APP_SystemReset()` efter et VOLTAGE-skift (`:425`) kan ramme ON1–ON3 uden ordnet OFF. [D333]
+     resetter ikke (`ACTION: Power-cycle required`).
+  3. Der gemmes før kvitteringen, og kvitteringen viser den parsede værdi, også når gemningen
+     fejler (`:348-350`). En skrivefejl annullerer kun resettet (SVC-002, SVC-004).
+  4. **Parseren:** Nøglerne skelner mellem store og små bogstaver, ukendte linjer ignoreres tavst, den
+     sidste VOLTAGE vinder, og der læses højst 9 linjer og 511 B. Desuden findes aliaset `VOLT` og
+     `1`/`0` (SVC-008). [D333] FR-1301.
+  5. **Kvitteringen** har titlen `THE GRYPHON HELIOS`, `FIRMWARE VERSION:`, `VOLTAGE SETTING:` og
+     `BOOT COUNTER:`, men ingen STATUS, ERROR, ACTION eller BOOTLOADER (SVC-007).
+  6. **Den gamle kvittering** truncates og slettes ikke, før kommandofilen læses. [D333] #417.
+  7. **Læsefejl:** `(size_t)-1` i en `uint32_t` tolkes som data, så den gamle buffer parses
+     (`:295-296`). En tom fil giver ingen kvittering, og ACK-handlet tjekkes ikke (`:396`).
+  8. **SN** er udkommenteret, og kvitteringen har intet SN.
+  9. [D333]'s `ERROR` og `ERROR=CLEAR`: Helios har ingen gemt fejlstatus (§9.17).
+  10. **Ingen synlig respons** ved fejl eller succes. [D333] har kun loggen (#253) (SVC-005).
+- **Rettet:** §9.2 sagde "USB kun i standby". Den henviser nu til §9.52.
+- **Fælles erfaring:** Tilføjelsen "Efterprøvet i Helios" i SVC-009 er forkert, for CPU'en sover i
+  standby. Rettelsen er foreslået og venter på Michael.
+- **Bemærket fra område 8:** §9.3 ("altid aktiv", fejlramme) modsiger §9.51 (bytes uden for
+  vinduet kasseres).
 
 ### 2026-11-27 (område 8, læst)
 

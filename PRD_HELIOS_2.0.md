@@ -1509,8 +1509,8 @@ adfærd, er markeret **(adfærd)**.
 1. **Intet arbejde i ISR (NFR-010).** Opvågning (`wakeUp`, IR-poll, debounce), skærmskift og
    backlight ved timeout samt bootloader-aktivering flyttes fra ISR til main-loopet. Den
    synlige adfærd (tider og rækkefølge) bevares. Kilde: tabellen i §3.2.
-2. **Gating i `tasks.c` flyttes til Application Layer (NFR-015).** Samme adfærd: GLCD
-   opdateres kun ved ON, opstart eller AC-fejl, og USB køres kun i standby.
+2. **Gating i `tasks.c` flyttes til Application Layer (NFR-015).** GLCD opdateres som i 1.0
+   kun ved ON, opstart eller AC-fejl. USB følger ikke længere `!powerOnFlg`, men gaten i §9.52.
 3. **(adfærd) UART-testinterfacet er altid aktivt** (beslutning 2026-11-27). Parseren kører i
    alle tilstande: opstart, standby, menu og normal drift. Kommandoer, som tilstanden ikke
    tillader, afvises med en fast fejlramme, men ignoreres aldrig tavst. Livsprøve og
@@ -2041,6 +2041,32 @@ adfærd, er markeret **(adfærd)**.
         giver overrun.
     - **Synlig adfærd:** En kommando sendt i en undermenu bliver ikke længere udført, når menuen
       forlades. Fejlvejene kan testes, mens SYSTEM ERROR vises.
+52. **(adfærd) Hvornår servicesticken behandles** (beslutning 2026-11-27, §4.14), som [D333]
+    FR-1300.
+    - **Legacy (kode læst):**
+      - USB-host og `APP_USB_CMD_Tasks()` kører kun, når `powerOnFlg` er 0 (`tasks.c:93-104`, rettet
+        i hånden i genereret kode).
+      - I standby står CPU'en stille. Deep sleep er et reset, og i IDLE kører main-loopet ikke
+        (FR-120).
+      - Der er derfor tre vinduer, hvor sticken kan læses:
+        - Boot-stien, højst ca. 0,5 s (noise-guarden), før enheden går i sleep.
+        - Fra AC-check til ON4, hvor `powerOnFlg` sættes (`On_Off_Control.c:949`). Det er ca.
+          2,5 s (§4.1).
+        - Mismatch-skærmen, hvor `powerOnFlg` aldrig sættes. Her er tiden ubegrænset.
+      - En stick melder sig efter 0,43–2,9 s (SVC-001). En langsom stick misses derfor i opstarten
+        uden fejl, og state machine'n fryser midt i forløbet, når ON4 nås.
+      - Et VOLTAGE-skift i opstartsvinduet giver et reset i ON1–ON3, hvor `DPS_RELAY_ON_OFF` og
+        `SOFT_START_ON_OFF` kan være tændt (se fund 2 i DAYLOG, område 9).
+    - **2.0:** Som [D333] FR-1300.
+      - Sticken behandles kun i RUNNING (fra ON7 er nået, til en OFF-sekvens starter) og på
+        AC-fault-skærmene (FR-108).
+      - Et mount under opstart, sluk eller standby venter og behandles én gang, når gaten åbner.
+      - Gaten ligger i Application Layer og ikke i `tasks.c` (NFR-015, §9.2).
+    - **Forudsætning:** VBUS skal være forsynet i ON og på AC-fault-skærmen (§11.6). [D333] har VBUS
+      på `+5V_DISPLAY`.
+    - **Synlig adfærd:** En stick, der sidder i ved tænding, behandles, når opstarten er færdig, og
+      ikke i de første 2,5 s. En langsom stick bliver ikke længere tavst misset. Sticken virker nu
+      også under afspilning.
 
 ---
 
@@ -2110,6 +2136,9 @@ _Udfyldes under område 2–9._
      Sidder EEPROM'en på standby-rail'en? Det afgør, om "switch off and on" heler E1x og E2x.
    - _Område 7 (§4.11):_ Er EEPROM'en en 24LC04B (512 B, 16 B pages, blokkene 0x50 og 0x51)?
      Koden peger på det (`eeProm_Functions.c:17-25`), men stykliste og diagram er ikke læst.
+   - _Område 9 (§9.52):_ Hvor kommer VBUS på USB-porten fra, og er den forsynet i ON og på
+     AC-fault-skærmen? 1.0 kører aldrig USB i ON, så koden siger intet om det. Er VBUS strømbegrænset
+     i hardware ([D333]: PTC MICROSMD050F-2)?
 
 ---
 

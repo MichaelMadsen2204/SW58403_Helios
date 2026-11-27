@@ -111,7 +111,7 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
 | `actionViewTimeOut_Callback` | Kalder `legato_showScreen()` | `screen_Action.c:326-334` |
 | `autoDispTimeOut_Callback` | Sætter backlight og kalder Legato-widgets | `screen_Action.c:336-` |
 | `remoteViewDispDelay_Callback` | Kalder `SYS_TIME_TimerDestroy` | `IR_control.c:99-113` |
-| `VolRepeat_Callback`, `VolInitialDelay_Callback` | Ændrer `curLvl` og registrerer nye timere; selve I²C-skrivningen sker i main-loopet (`ActionScreen_VolumeUiPump`) | `screen_Action.c:197-273` |
+| `VolRepeat_Callback`, `VolInitialDelay_Callback` | Ændrer `curLvl` og registrerer nye timere; selve I²C-skrivningen sker i main-loopet, i skærmens opdateringsfunktion (`updateActionScreen`, `screen_Action.c:1394-1404`, og `updateSimpleViewScreen`, `Screen_SimpleView.c:22-26`), når `curLvl` er ændret | `screen_Action.c:197-273` |
 
 Øvrige callbacks sætter kun flag (`IR_control.c:66-77`, `ac_check.c:42-50`,
 `On_Off_Control.c:1261-1265`, `Level_Control.c:15-18`, `eeProm_Functions.c:71-81`).
@@ -138,6 +138,14 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
   tællerdifferencer (MCC-006). Legacy har flere `millis()`-varianter, der wrapper (#3).
 - **NFR-015:** Ingen egen logik i genereret kode (MCC-001). Det, legacy har lagt i `tasks.c`
   (GLCD- og USB-gating efter power-tilstand), flyttes til Application Layer.
+  - **Touch-hooks:** `le_gen_harmony.c` er urørt. Touch-hændelser til appen (fx volumen-repeat)
+    går via en egen `SYS_INP`-lytter, som [D333] `touch_bridge.c` registrerer med
+    `SYS_INP_AddListener` fra `APP_Initialize()`. `SYS_INP_MAX_LISTENERS` er 2, og Legato
+    bruger den ene, så en tredje lytter kræver, at konstanten hæves via MCC.
+  - **Eneste undtagelse:** Touch-genopretningen i `drv_touch_controller.c`
+    `DRV_TOUCH_STATE_ERROR` som [D333] #60 og #103. Den skal genindsættes efter hver
+    regenerering, der rører touch-driveren, efter en fast procedure ([D333]
+    `README_REBUILD.md`). Diffen tjekkes efter hver regenerering (MCC-001). Se §9.29.
 - **NFR-016:** Applikationstilstand og aktiv skærm er adskilte begreber. Power-tilstand,
   menu/normal drift og aktiv skærm modelleres hver for sig, og kun GUI Layer kender
   skærm-ID'er.
@@ -150,6 +158,11 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
   er current, og kun fra main-loopet. Legacy-guarden i `app.c:187`
   (`if (!legato_getCurrentScreen() == screenID_actionScreen)`) er død kode: `!x` giver 0
   eller 1, og `screenID_actionScreen` er 2 (`le_gen_init.h:42`), så betingelsen er aldrig sand.
+  - **Skærmtjekket ligger i GUI-funktionen selv**, ikke hos kalderen, og et widget skrives kun,
+    når værdien ændres.
+  - **Legacy (område 6):** `updateSimpleViewScreen` skriver mute-krydset i hvert tik uden eget
+    skærmtjek (`Screen_SimpleView.c:28-31`). Det er sikkert, fordi kalderen gater
+    (`app.c:205`), men kontrakten er skrøbelig.
 - **NFR-021:** Den kapacitet, der gives til `leFixedString_Constructor`, afledes altid af
   bufferen (`sizeof(buf) / sizeof(buf[0])`) og skrives aldrig som et tal.
   - **Legacy:** Kapaciteten er 16, men bufferne har kun 9 elementer
@@ -157,8 +170,34 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
     (`Screen_Volume_Settings.c:23-24`, `:146`, `:162`).
   - Der sker intet overløb i praksis, for den længste tekst er "+8 dB". Men den grænse,
     som Legato håndhæver, er forkert.
-  - De øvrige `Screen_*.c` tjekkes i område 6.
-- GUI-idiomer, der skal bevares (GUI-001/002): _udfyldes under område 6._
+  - **Område 6:** Samme fejl i `Screen_SimpleView.c` med 8 elementer (`:10`/`:91`) og 9
+    elementer (`:12`/`:160`), i `Screen_Qwerty_Keypad.c` med 9 elementer (`:29-30`/`:272-273`) og
+    i `legatoCharBuffer` med 8 elementer (`ui_globals.c:24`, brugt i `screen_Action.c:758` og
+    `Screen_SimpleView.c:101`). Kapaciteten er 16 alle steder.
+    - `setFromCStr` klipper længden til kapaciteten og skriver ingen terminator
+      (`legato_fixedstring.c:193-205`). Et inputnavn er højst 8 tegn (`inpNames[12][9]`), og
+      display-modeteksterne er højst 8 tegn ("AUTO OFF", `ui_globals.c:54-59`), så der sker
+      intet overløb. Det eneste overløb kommer via
+      format-fejlen i §9.28.
+    - Inputnavne, Fs og FW (16 mod 16) og SN (8 mod 6) er i orden.
+- **GUI-002 (fonte til dynamisk tekst):** En font, der bruges til en dynamisk tekst, har et
+  tegninterval i Composer, som dækker alt, hvad kilden kan give. Kildens tegnsæt og fontens
+  intervaller står ved siden af hinanden i koden eller i testen.
+  - **Legacy (kode læst):** Fontindekset er læst fra `stringTable_data`
+    (`le_gen_stringtable.c`) og tegnområderne fra `le_gen_fonts.c`. Tastaturet er
+    Windows-1252 (Å = 0xC5, Æ = 0xC6, Ø = 0xD8) med ASCII-symboler
+    (`Screen_Qwerty_Keypad.c:31-36`).
+
+    | Tekst | Font | Tegnområder |
+    |---|---|---|
+    | Inputnavne: action (`Inp1–11Name`), level match, tastaturets redigeringsfelt | `Avenir18` | 0x20–0x7E, 0xC5–0xD8 |
+    | Inputnavn på simple view | `Avenir64` | 0x20–0x7E, 0xC5–0xD8 |
+    | Display-mode, start- og maksniveau, PCM-filter | `avenir48` | 0x20, 0x23–0x5A |
+
+  - Alle kilder er dækket. `avenir48` mangler Æ, Ø, Å og `! ' ^ _ ~`, men viser kun store
+    bogstaver, cifre og `%`.
+- **GUI-001 (vedvarende valg-indikation):** _Helios' vælgerskærme er ikke undersøgt endnu
+  (område 6)._
 
 ---
 
@@ -1017,6 +1056,15 @@ _Område 6._ Auto Standby-overlay og menupunkt (FR-815, FR-816).
   `gui_system_error`, §9.41 i [D333] på `origin/main`), fx til I²C-busfejl. Kodetabellen til
   Helios (tre I²C-busser, U26, L/R-expandere, DAC-modul) fastlægges i område 6.
 
+**Legacy-adfærd uden krav endnu (kode læst).** Kravene skrives sammen med [D333] FR-850/§9.43
+(MM/MC og ugyldig `pickupSel`) og FR-861/§9.42 (AV gråtonet i level match):
+
+- **Pickup MM/MC:** Ved et skift sættes niveauet til 0, valget gemmes, og U26 sættes. Så vises
+  en progressbar, der tæller til 100 med ét trin hver 250 ms, i alt 25 s
+  (`Screen_Pickup_Selection.c:49-74`).
+- **AV-skærmen:** Valgmulighederne er ingen, input 3 og input 4 som toggles. Valget gemmes på
+  `OnHide` (`Screen_AV_Setup.c`).
+
 ### 4.11 Persistens
 
 _Område 7._ EEPROM-layout fra 1.0 og ledige adresser til Auto Standby står i #1.
@@ -1389,6 +1437,39 @@ adfærd, er markeret **(adfærd)**.
       Begge dele er ens i Helios og [D333].
     - **Ugyldig EEPROM-værdi:** Hvordan den tolkes, afgøres i område 7. [D333] tolker kun 1
       som front. Om den validerer ved indlæsning, er ikke tjekket.
+28. **Inputnavne er data, aldrig format** (beslutning 2026-11-27).
+    - **Legacy:** Tastaturet tillader `%` i et inputnavn (`Screen_Qwerty_Keypad.c:36`). Navnet
+      bruges som format i `sprintf(cCharBuffer2, inpNames[...])` (`Screen_SimpleView.c:51`,
+      `:92`, `uart_control.c:308`). Et navn som `CD%s` giver udefineret adfærd og kan skrive ud
+      over `cCharBuffer2[16]` (kode læst).
+    - **2.0:** Navnet kopieres som data med en funktion, der har længdegrænse, fx
+      `snprintf(buf, sizeof buf, "%s", name)`. `%` er et almindeligt tegn i navnet, og
+      tastaturet er uændret. Det dækkes af en host-test med `%` i navnet.
+
+    Den synlige adfærd er den samme for alle navne uden `%`.
+29. **Touch uden håndrettelser i genereret kode, med én undtagelse** (beslutning 2026-11-27),
+    som [D333] rebuild (NFR-015).
+    - **Legacy:** `le_gen_harmony.c:114-130` er rettet i hånden med `ActionTouch_On*`-kald til
+      volumen-repeat. `drv_touch_controller.c:403-415` genstarter I2C1 og kalder
+      `ActionTouch_OnError` ved touch-fejl. Begge rettelser fjernes ved en regenerering
+      (kode læst).
+    - **2.0:** Touch-hooks går via [D333] `touch_bridge.c`, som har sin egen `SYS_INP`-lytter.
+      Touch-genopretningen er [D333]'s sanktionerede blok i `DRV_TOUCH_STATE_ERROR`
+      (#60), der genindsættes efter en fast procedure. Blokken rydder en hængende tryk-tilstand
+      før I²C-genstarten (#103).
+    - **Synlig adfærd:** Den er uændret, bortset fra at et tryk, der hænger ved en I²C-fejl, nu
+      slippes.
+30. **Død GUI-kode videreføres ikke** (beslutning 2026-11-27), som §9.9, §9.17 og §9.26.
+    Følgende har ingen synlig effekt i legacy (kode læst):
+    - `prevStateForOverlay` tildeles aldrig, så overlayenes `OnHide` sætter tilstanden til
+      `INIT` (`Screen_SimpleView.c:256-272`, `app.c:84`). Den nye skærms `OnShow` overskriver
+      den straks.
+    - `uiOverlayActive` sættes aldrig til 1.
+    - Kun `filterSimpleView_OnShow` sætter `APP_STATE_IDLE` (`:179`), så UART behandles på det
+      ene overlay og ikke på de to andre. Forskellen forsvinder med §9.3.
+
+    I 2.0 modelleres overlays efter NFR-016, hvor tilstand og skærm er adskilt. Ingen adfærd
+    ændres.
 
 ---
 

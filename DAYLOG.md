@@ -15,8 +15,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. Område 6 (GUI) er
-   læst, men fundene står kun i log-posten nedenfor og er ikke skrevet ind i PRD'en endnu.
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. I område 6 (GUI) er
+   de 8 fund placeret (2026-11-27, se log). Legacy-afsnittet og kravene i §4.10 mangler.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -25,10 +25,10 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
      level match (område 6), FR-850/§9.43 MM/MC og ugyldig `pickupSel` (område 6/7), §9.38
      gammel ACK fjernes før kommandofilen (#417, §4.14) og E31 ved et eskaleret DAC-valg
      (§9.19, område 6).
-   - **Område 6:** Læg fundene i log-posten frem for Michael én ad gangen (§9 eller
-     §10). Skriv legacy-afsnittet i §4.10 og kravene til 2.0: skærmkatalog, display-modes,
-     skærmskift med 300 ms, SYSTEM ERROR-skærmens kodetabel, Auto Standby (FR-815, FR-816) og
-     GUI-001/002-idiomerne i §3.3.
+   - **Område 6:** Skriv legacy-afsnittet i §4.10 og kravene til 2.0: skærmkatalog,
+     display-modes, skærmskift med 300 ms, SYSTEM ERROR-skærmens kodetabel, Auto Standby
+     (FR-815, FR-816), Pickup og AV (sammen med [D333] FR-850 og FR-861) og GUI-001 i §3.3
+     (undersøg Helios' vælgerskærme).
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
      UART-hændelseslinjen for IR fastlægges i område 8. Tolkningen af en ugyldig
@@ -49,6 +49,27 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 6, fund placeret)
+
+De 8 fund fra log-posten "område 6, læst" er placeret (Michael):
+
+1. **Format-string:** §9.28. Inputnavne er data, `%` er et almindeligt tegn, og tastaturet er
+   uændret.
+2. **Buffere:** NFR-021 er udvidet. `setFromCStr` klipper og skriver ingen terminator
+   (`legato_fixedstring.c:193-205`), så der er intet overløb uden fund 1. Display-modeteksterne
+   er op til 8 tegn ("AUTO OFF"), ikke 4.
+3. **Genereret kode:** NFR-015 og §9.29 følger [D333] rebuild: `touch_bridge.c` med en egen
+   `SYS_INP`-lytter. Touch-genopretningen i `DRV_TOUCH_STATE_ERROR` (#60, #103) er den eneste
+   sanktionerede håndrettelse med en genindsættelsesprocedure.
+4. **§3.2:** Linjen om volumenskrivningen er rettet. Den sker i `updateActionScreen` og
+   `updateSimpleViewScreen`.
+5. **Pickup og AV:** Noteret som legacy i §4.10. Kravene skrives sammen med [D333] FR-850 og
+   FR-861.
+6. **Død overlay-logik:** §9.30.
+7. **Mute-krydset:** Observation under NFR-020. Skærmtjekket hører hjemme i GUI-funktionen.
+8. **Fonte:** GUI-002 er skrevet ind i §3.3 med en fonttabel. Alle dynamiske kilder er dækket
+   (inputnavne bruger `Avenir18` og `Avenir64`). GUI-001 er ikke undersøgt.
 
 ### 2026-11-27 (D333-referencer)
 

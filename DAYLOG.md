@@ -15,10 +15,15 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. Næste skridt er
-   **område 6 (GUI, §4.10)**: `screen_Action.c` og de øvrige `Screen_*.c`.
-   - Tjek også NFR-021 i de øvrige `Screen_*.c`, GUI-001/002-idiomerne og Auto Standby
-     (FR-815, FR-816).
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. Område 6 (GUI) er
+   læst, men fundene står kun i log-posten nedenfor og er ikke skrevet ind i PRD'en endnu.
+   - **Først:** Tjek D333-referencerne i område 1–5 mod D333 `origin/main` (PRD §1). Det lokale
+     D333-checkout er 312 commits bagud og har 28 ucommittede ændringer. Rør det ikke, men læs
+     med `git -C D:/MPLAB/d333 show origin/main:<fil>`.
+   - **Derefter område 6:** Læg fundene i log-posten frem for Michael én ad gangen (§9 eller
+     §10). Skriv legacy-afsnittet i §4.10 og kravene til 2.0: skærmkatalog, display-modes,
+     skærmskift med 300 ms, SYSTEM ERROR-skærmens kodetabel, Auto Standby (FR-815, FR-816) og
+     GUI-001/002-idiomerne i §3.3.
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
      UART-hændelseslinjen for IR fastlægges i område 8. Tolkningen af en ugyldig
@@ -39,6 +44,60 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 6, læst)
+- **Beslutninger (PRD §1 og §4.10):** D333 læses fra `origin/main`. `SN_SET` udgår.
+  `errorDisplay` bliver SYSTEM ERROR-skærm efter D333 FR-530 (fx I²C-busfejl), med en
+  kodetabel til Helios.
+- **Fund, der venter på Michaels placering i §9 eller §10 (kode læst):**
+  1. **Format-string:** Et inputnavn med `%` fra tastaturet (`Screen_Qwerty_Keypad.c:36`) bruges
+     som format i `sprintf(cCharBuffer2, inpNames[...])` (`Screen_SimpleView.c:51`, `:92`,
+     `uart_control.c:308`). Det er udefineret adfærd og kan skrive ud over `cCharBuffer2[16]`.
+  2. **NFR-021:** Buffer mod kapacitet:
+     - `Screen_SimpleView.c`: 8 mod 16 (`:10`/`:91`) og 9 mod 16 (`:12`/`:160`).
+     - `Screen_Qwerty_Keypad.c`: 9 mod 16 (`:29-30`/`:272-273`).
+     - `legatoCharBuffer`: 8 mod 16 (`ui_globals.c:24`, `screen_Action.c:758`,
+       `Screen_SimpleView.c:101`).
+     - Ok: inputnavne, Fs og FW (16 mod 16) og SN (8 mod 6).
+  3. **MCC-001:** De genererede filer `le_gen_harmony.c:114-130` (touch-hooks til
+     volumen-repeat) og `drv_touch_controller.c:403-415` (I²C1-genstart og
+     `ActionTouch_OnError` ved touch-fejl) er rettet i hånden. En regenerering fjerner
+     rettelserne. NFR-015 nævner kun `tasks.c`.
+  4. **§3.2 linje 108 er forkert:** Volumenskrivningen over I²C sker i `updateActionScreen`
+     (`screen_Action.c:1394-1404`), ikke i `ActionScreen_VolumeUiPump`.
+  5. **Huller:**
+     - **Pickup MM/MC:** Ved et skift sættes niveauet til 0, valget gemmes, U26 sættes, og der
+       vises en progressbar til 100 med et trin hver 250 ms, i alt 25 s
+       (`Screen_Pickup_Selection.c:49-74`).
+     - **AV-skærmen:** Ingen, input 3 og 4 er toggles, og valget gemmes på `OnHide`
+       (`Screen_AV_Setup.c`).
+     - Ingen af de to står i PRD'en.
+  6. **Død logik:**
+     - `prevStateForOverlay` tildeles aldrig, så overlayenes `OnHide` sætter tilstanden til
+       `INIT` (`Screen_SimpleView.c:256-272`, `app.c:84`). Den nye skærms `OnShow` overskriver
+       den.
+     - `uiOverlayActive` sættes aldrig til 1.
+     - `filterSimpleView_OnShow` sætter `APP_STATE_IDLE` (`:179`), men de to andre overlays
+       gør ikke.
+  7. **NFR-020:** `updateSimpleViewScreen` skriver mute-krydset hvert tik uden at tjekke den
+     aktuelle skærm (`Screen_SimpleView.c:28-31`). Kaldet er dog gated i `app.c:205`.
+  8. **GUI-002 (ikke færdigt):** De fleste fonte har 0x20–0x7E og 0xC5–0xD8. `avenir48` har kun
+     0x20 og 0x23–0x5A, så den mangler Æ, Ø, Å og `! ' ^ _ ~`, som tastaturet har. Det er ikke
+     fastslået, hvilken font de dynamiske inputnavne bruger (`fontList`,
+     `le_gen_stringtable.c:378`).
+- **Adfærd, der skal ind i §4.10 (kode læst):**
+  - **Display-modes:** 100/75/50/25 % giver PWM 100/60/40/15. Dim og off giver 100 % ved
+    aktivitet og derefter 15 % eller 0 efter T_DIM (`Screen_Display_Setup.c:14-45`,
+    `screen_Action.c:336-369`).
+  - **Skærmskift:** Baglyset står, og `setDisplayIntensity()` kaldes 300 ms efter `OnShow` på
+    action og simple view (`Display_Backlight.c:38-46`, `screen_Action.c:769-775`). Touch på
+    simple view slukker baglyset før skiftet (`Screen_SimpleView.c:78-86`).
+  - **Menuen:** Baglys 100 %. Knapperne Digital og Pickup skjules uden modul
+    (`Screen_Main_Menu.c:65-77`). Green bias er altid synlig.
+  - **Omdøbning:** 8 tegn. Tastaturet har A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK
+    (`Screen_Qwerty_Keypad.c`).
+  - **Fade:** Fade ind og ud tager 40 × 50 ms og blokerer (`Display_Backlight.c:4-24`, kaldt
+    fra `On_Off_Control.c:919`, `:1059`).
 
 ### 2026-11-27 (område 5, krav)
 - Krav til 2.0 i §4.9: FR-700–705 efter D333, FR-706 (power og opvågning) og FR-707

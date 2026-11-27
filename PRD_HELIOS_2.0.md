@@ -31,6 +31,11 @@ _Udfyldes. Kilde: beslutningerne i #1 (2026-11-26)._
   områder. Findes der en løsning i D333, som er implementeret og testet, bruger Helios 2.0
   den. Kilden er D333's rebuild af U3 (`D:/MPLAB/d333/SW_U3_REBUILD`, samme MCU). Gennemgangen
   af 1.0 skal derfor især finde de Helios-specifikke forskelle i hardware og adfærd.
+  - **Kildens version (beslutning 2026-11-27):** D333 læses fra `origin/main` efter
+    `git fetch` (`git show origin/main:<fil>`), ikke fra det lokale checkout, som kan være
+    bagud. Område 1–5 er læst fra et checkout af 2026-10-28, som var 312 commits bagud for
+    `origin/main` (2026-11-17). Deres D333-referencer (FR-, TIM- og §9-numre samt bænkstatus)
+    tjekkes igen mod `origin/main`.
   - **Ved konflikt** genbruges D333's kode og mekanisme, mens parametre, som brugeren kan
     mærke (tider, niveauer, tekster, skærmforløb), følger Helios 1.0. Eksempel: D333 dæmper
     efter 10 s, men Helios beholder 8 s (TIM-17).
@@ -1000,6 +1005,16 @@ bænktesten i §9.20 kan automatiseres (HIL-003). Formatet fastlægges i område
 ### 4.10 GUI
 
 _Område 6._ Auto Standby-overlay og menupunkt (FR-815, FR-816).
+
+**Beslutninger (2026-11-27, Michael):**
+
+- **`SN_SET` udgår.** Skærmen vises ingen steder i 1.0 (`legato_showScreen(screenID_SN_SET)`
+  findes ikke). Serienummeret bruges kun via UART (`uart_control.c:431`, `:465`, område 8).
+- **`errorDisplay` bliver SYSTEM ERROR-skærm.** Skærmen vises heller ingen steder i 1.0. Helios er
+  en forforstærker uden fejlbit fra et effekttrin, så [D333] FR-515 gælder ikke. I stedet
+  genbruges skærmen til [D333] FR-530 (SYSTEM ERROR med fejlkoder, `app_health` +
+  `gui_system_error`, §9.41 i [D333] på `origin/main`), fx til I²C-busfejl. Kodetabellen til
+  Helios (tre I²C-busser, U26, L/R-expandere, DAC-modul) fastlægges i område 6.
 
 ### 4.11 Persistens
 

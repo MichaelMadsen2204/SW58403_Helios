@@ -2067,6 +2067,77 @@ adfærd, er markeret **(adfærd)**.
     - **Synlig adfærd:** En stick, der sidder i ved tænding, behandles, når opstarten er færdig, og
       ikke i de første 2,5 s. En langsom stick bliver ikke længere tavst misset. Sticken virker nu
       også under afspilning.
+53. **(adfærd) Intet reset efter et VOLTAGE-skift** (beslutning 2026-11-27, §4.14), som [D333]
+    FR-1301 og SVC-009.
+    - **Legacy (kode læst):** Når VOLTAGE er gemt, og kvitteringen er lukket, laves
+      `APP_SystemReset()` (`app_usb_cmd.c:424-426`) uden ordnet OFF. Kvitteringen siger
+      `ACTION: Rebooting to apply voltage setting` (`:186`).
+      - På mismatch-skærmen er det resettet, der får den nye værdi til at virke. Gentjekket
+        sammenligner med den forventede værdi fra starten af AC-kontrollen (`ac_check.c:72`,
+        `:157-158`) og genlæser ikke EEPROM.
+      - Hvad boot-stien gør efter et software-reset (ON eller sleep, `On_Off_Control.c:588-607`), er
+        ikke afklaret.
+    - **2.0:** Værdien gemmes og slår igennem ved næste tænding (FR-108, FR-111). Kvitteringen siger
+      `ACTION: Power-cycle required`, og firmwaren resetter aldrig selv.
+    - **Synlig adfærd:** På mismatch-skærmen skal netstikket tages, før den rettede værdi virker. I
+      1.0 skete det af sig selv. I RUNNING ændrer en stick aldrig noget midt i musikken.
+54. **Kvitteringen viser det gemte** (beslutning 2026-11-27, §4.14), som [D333] FR-1301 og
+    FR-1302.
+    - **Legacy (kode læst):** VOLTAGE gemmes, mens filen fortolkes, før kvitteringen skrives
+      (`app_usb_cmd.c:347-353`). `VS` sættes til den parsede værdi, før gemningen
+      (`:348`). Kvitteringen viser den derfor, også når gemningen fejler. Fejler skrivningen af
+      kvitteringen, annulleres kun resettet (`:412`), og værdien forbliver gemt.
+    - **2.0:** Som [D333].
+      - Forudsigelige afvisninger (parsefejl og en ulæselig gemt spænding) afgøres, før første
+        skrivning.
+      - Udførelsen stopper ved første skrivefejl.
+      - Kvitteringen viser den gemte værdi efter en eventuel skrivning. `STATUS: OK` kræver, at
+        både gemning og kvittering er lykkedes.
+    - **Restrisiko som [D333]:** På en skrivebeskyttet stick kan VOLTAGE være gemt, selv om der ikke
+      kommer nogen kvittering (SVC-002). Volantes "bevis først" er fravalgt.
+    - **Synlig adfærd:** Kvitteringen siger aldrig en værdi, der ikke er gemt.
+55. **(adfærd) Kommandofilen parses som i [D333]** (beslutning 2026-11-27, §4.14), FR-1301 og
+    SVC-008.
+    - **Legacy (kode læst, `app_usb_cmd.c:293-372`):**
+      - Der læses én gang op til 511 B, og linjer deles med `strtok`. Kun 9 linjer behandles, og en
+        linje over 127 tegn afkortes.
+      - Nøglerne skelner mellem store og små bogstaver (`strcmp`, `:342-364`). Værdien til VOLTAGE er
+        case-insensitiv (`voltageSetting.c:47-62`).
+      - Ukendte linjer og ugyldige VOLTAGE-værdier ignoreres tavst. Linjer, der starter med `#` eller
+        `;`, er kommentarer (`:87`).
+      - Hver VOLTAGE-linje udføres for sig, så den sidste vinder.
+      - Aliaset `VOLT` og værdierne `1` og `0` accepteres. BOM håndteres ikke.
+    - **2.0:** Som [D333] FR-1301, uden Helios' ekstra stavemåder:
+      - Kommandoerne er `FW`, `VOLTAGE=HIGH|LOW` og `BOOT`. `=` og `:` gælder begge, og der skelnes
+        ikke mellem store og små bogstaver. Om `ERROR` kommer med, står i DAYLOG (område 9, fund 9).
+      - Hele filen parses, før noget udføres. Én ugyldig, for lang (over 64 tegn) eller
+        ikke-printbar linje afviser hele filen med `ERROR: Invalid command at line <n>: <linje>`.
+      - Modstridende VOLTAGE afvises. En tom fil giver `No commands found`. En fil over 1 KB afvises
+        uden udførelse.
+      - En UTF-8-BOM afvises synligt som en ugyldig linje 1.
+      - Tomme linjer ignoreres, men tæller med i linjenumrene.
+    - **Synlig adfærd:** En fil med `VOLT`, `1`, `0`, små bogstaver i 1.0's forstand eller en ukendt
+      linje afvises nu synligt i kvitteringen, hvor 1.0 enten udførte den eller sprang den over.
+      Servicevejledningen skal kun bruge `VOLTAGE=HIGH` og `VOLTAGE=LOW`.
+56. **(adfærd) Kvitteringen får [D333]'s ramme med 1.0's tekster** (beslutning 2026-11-27, §4.14),
+    FR-1302 og SVC-007.
+    - **Legacy (kode læst, `app_usb_cmd.c:161-188`):** CRLF hele vejen igennem:
+      - Tre titellinjer med `****      THE GRYPHON HELIOS       *****` i midten og en tom linje.
+      - `FIRMWARE VERSION: <firmwareVersion>` og `VOLTAGE SETTING: HIGH|LOW`.
+      - `BOOT COUNTER: <n>`, kun når `BOOT` er bedt om.
+      - `ACTION: Rebooting to apply voltage setting` ved et skift.
+      - Der er ingen STATUS, ERROR eller BOOTLOADER.
+    - **2.0:**
+      - Titel og etiketter er 1.0's: titellinjerne, `FIRMWARE VERSION:`, `VOLTAGE SETTING:` (den
+        gemte værdi, §9.54) og `BOOT COUNTER:`.
+      - Rammen er [D333]'s: kvitteringen skrives altid, også ved en afvist fil, med `STATUS: OK` eller
+        `STATUS: ERROR`, ved fejl en `ERROR:`-linje (første fejl) og ved et skift
+        `ACTION: Power-cycle required` (§9.53).
+      - Der er ingen BOOTLOADER-linje, som i §9.44. BTL 1.0 har ingen versionsblok (§4.13). Linjen
+        tages op igen med BTL 2.0 (#2).
+      - Rækkefølgen af linjerne følger [D333], med 1.0's etiketter.
+    - **Synlig adfærd:** Kvitteringen har nye linjer (STATUS, ERROR, ACTION). De gamle etiketter er
+      uændrede, så værktøjer, der læser dem, virker stadig.
 
 ---
 

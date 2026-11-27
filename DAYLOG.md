@@ -22,7 +22,7 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (2026-11-27, se log). **Område 6 er gennemgået.** **Område 7 er gennemgået**
    (§4.11, §9.40–9.43, se log "område 7, læst"). **Område 8 er gennemgået**
    (§4.12, §9.44–9.51, §10.5, se log "område 8, læst"). **Område 9 (USB-servicestick, §4.14) er
-   læst**, og fund 1 er placeret i §9.52. Fund 2–10 mangler (se log "område 9, læst"), og så §4.14.
+   læst**, og fund 1–5 er placeret i §9.52–9.56. Fund 6–10 mangler (se log "område 9, læst"), og så §4.14.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -66,14 +66,18 @@ Servicesticken er læst i `app_usb_cmd.c` (uændret siden `v1.0`), `tasks.c:93-1
      (højst ca. 0,5 s), AC-check til ON4 (ca. 2,5 s) og mismatch-skærmen. **Placeret: §9.52** (som
      [D333]: RUNNING og AC-fault, et mount under opstart venter). VBUS i ON står i §11.6.
   2. `APP_SystemReset()` efter et VOLTAGE-skift (`:425`) kan ramme ON1–ON3 uden ordnet OFF. [D333]
-     resetter ikke (`ACTION: Power-cycle required`).
+     resetter ikke (`ACTION: Power-cycle required`). **Placeret: §9.53** (som [D333], intet reset,
+     heller ikke på mismatch-skærmen).
   3. Der gemmes før kvitteringen, og kvitteringen viser den parsede værdi, også når gemningen
-     fejler (`:348-350`). En skrivefejl annullerer kun resettet (SVC-002, SVC-004).
+     fejler (`:348-350`). En skrivefejl annullerer kun resettet (SVC-002, SVC-004). **Placeret:
+     §9.54** (som [D333]. Volantes "bevis først" er fravalgt).
   4. **Parseren:** Nøglerne skelner mellem store og små bogstaver, ukendte linjer ignoreres tavst, den
      sidste VOLTAGE vinder, og der læses højst 9 linjer og 511 B. Desuden findes aliaset `VOLT` og
-     `1`/`0` (SVC-008). [D333] FR-1301.
+     `1`/`0` (SVC-008). [D333] FR-1301. **Placeret: §9.55** (ren [D333], `VOLT` og `1`/`0`
+     udgår).
   5. **Kvitteringen** har titlen `THE GRYPHON HELIOS`, `FIRMWARE VERSION:`, `VOLTAGE SETTING:` og
-     `BOOT COUNTER:`, men ingen STATUS, ERROR, ACTION eller BOOTLOADER (SVC-007).
+     `BOOT COUNTER:`, men ingen STATUS, ERROR, ACTION eller BOOTLOADER (SVC-007). **Placeret:
+     §9.56** ([D333]'s ramme, 1.0's titel og etiketter, ingen BOOTLOADER-linje).
   6. **Den gamle kvittering** truncates og slettes ikke, før kommandofilen læses. [D333] #417.
   7. **Læsefejl:** `(size_t)-1` i en `uint32_t` tolkes som data, så den gamle buffer parses
      (`:295-296`). En tom fil giver ingen kvittering, og ACK-handlet tjekkes ikke (`:396`).

@@ -41,8 +41,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
      UART-hændelseslinjen for IR fastlægges i område 8.
-   - **§11.6 er besvaret** (se log "§11.6"). Det er ikke afgjort, om 2.0 skal overvåge VBUS på RE4
-     (§4.14). Poll-intervallet for DAC-status i FR-403 er heller ikke fastlagt.
+   - **§11.6 er besvaret** (se log "§11.6"). Poll-intervallet for DAC-status i FR-403 er ikke
+     fastlagt.
 
    Arbejdsgang:
    - Hver legacy-adfærd mærkes `kode læst fil:linje`.
@@ -67,7 +67,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 - **Nyt fund, §9.62:** DAC-modulets expander er også en PCAL6524 (registerkortet i D333's
   `drv_u26.c` passer, og Michael bekræfter). 1.0 og D333 udelader AI-bitten ved multi-byte. Det
   rettes i 2.0 og bænkbevises med en dump af 0x00 med og uden 0x80. Det foreslås tilbage til D333.
-- **Stadig åbent:** §11.7 (RA5), og om 2.0 skal overvåge VBUS på RE4.
+- **VBUS-overvågning (Michael):** Kun en UART-hændelse, ingen visning. Det er skrevet som FR-1304,
+  og BNK-18 er tilføjet (relæ-last fra Arduinoen udløser PTC'en). Tærsklen fastlægges på bænken.
+- **Stadig åbent:** §11.7 (RA5).
 - Rettet i §4.6, FR-403, FR-410, §4.10, §4.11, §4.14 og §9.32/§9.52.
 
 ### 2026-11-27 (§7)

@@ -1508,7 +1508,7 @@ filnavne, titel og etiketter er Helios 1.0's.
 - **Gaten** ligger i Application Layer og ikke i genereret kode (NFR-015).
 - **VBUS** er altid tændt og kan ikke slukkes (Michael, 2026-11-27). Firmwaren kan derfor ikke
   slukke for en hængende stick. VBUS er strømbegrænset af en PTC (MICROSMD050F), og efter PTC'en
-  måles den halve VBUS-spænding på `USB_VBUS_ANA` (RE4). Om 2.0 skal overvåge den, er ikke afgjort.
+  måles den halve VBUS-spænding på `USB_VBUS_ANA` (RE4). 2.0 overvåger den (FR-1304).
 - **Behandlingen** sker i ét tick som i [D333], hvor den er målt til højst ca. 0,9 s (ca. 8 % af
   DMT-perioden). Helios har samme DMT-config (NFR-013). Tallet bevises igen på Helios' bænk.
 
@@ -1540,6 +1540,16 @@ filnavne, titel og etiketter er Helios 1.0's.
 
 **FR-1303 (boot-tæller):** Står i §9.40 og §4.11 (16 bit LE på `0x84–0x85`), og ellers som [D333]
 FR-1303. `BOOT` læser den.
+
+**FR-1304 (VBUS-overvågning, Helios-specifik, beslutning 2026-11-27):**
+- **Hvorfor:** Harmony melder hverken detach eller overstrøm (USBH-009). Når PTC'en udløser, ligner en
+  kortsluttet stick derfor en stick, der ikke virker. RE4 er den eneste måde at se forskel på.
+- **Måling:** `USB_VBUS_ANA` (RE4) er den halve VBUS-spænding efter PTC'en (MICROSMD050F). Den
+  samples med ADC'en fra ticket i alle vågne tilstande.
+- **Hændelse:** En `[USB]`-linje på UART'en, når VBUS falder under tærsklen, og når den kommer over
+  igen. Der er ingen visning og ingen fejlkode, så brugeren mærker ingen ny adfærd.
+- **Tærskel, hysterese og samplingsinterval** fastlægges på bænken (BNK-18).
+- ADC-kanalen skal sættes op i MCC, ikke i hånden (NFR-015).
 
 ---
 
@@ -1702,6 +1712,7 @@ op er Helios-specifikke.
 | BNK-15 | DDR2 | `$M:vv;`. Resultatlinjen | §9.50 |
 | BNK-16 | Langtidstest med tilfældige tænd/sluk og standby | Arduino og UART som BNK-01 og BNK-02, med seed i loggen | HIL-003 |
 | BNK-17 | EEPROM-endurance | Som [D333] | FR-1001 |
+| BNK-18 | VBUS-overvågning | En last, som Arduinoen kobler på VBUS via et relæ, så PTC'en udløser og kommer igen. `[USB]`-linjerne for fald og genkomst | FR-1304 |
 
 ---
 
@@ -2580,7 +2591,7 @@ _Udfyldes under område 2–9._
    - ~~VBUS i ON og på AC-fault-skærmen.~~ **Afgjort:** VBUS er altid tændt og kan ikke slukkes
      (§4.14, §9.52).
    - ~~Strømbegrænsning af VBUS.~~ **Afgjort:** VBUS går gennem en MICROSMD050F som i [D333]. Efter
-     PTC'en måles den halve VBUS-spænding på `USB_VBUS_ANA` (RE4), så VBUS kan overvåges (§4.14).
+     PTC'en måles den halve VBUS-spænding på `USB_VBUS_ANA` (RE4), og 2.0 overvåger den (FR-1304).
 7. **Bootloader-pinnen RA5** (§4.13, §10.7). Hvad er `ACTIVATE_BOOTLOADER` fysisk på Helios:
    en serviceknap, en jumper eller et testpunkt? Kan en bruger nå den udefra? Er der en pull-up
    i hardware, eller bygger BTL 1.0 og appen på MCC's interne pull-up?

@@ -35,7 +35,8 @@ _Udfyldes. Kilde: beslutningerne i #1 (2026-11-26)._
     `git fetch` (`git show origin/main:<fil>`), ikke fra det lokale checkout, som kan være
     bagud. Område 1–5 er læst fra et checkout af 2026-10-28, som var 312 commits bagud for
     `origin/main` (2026-11-17). Deres D333-referencer (FR-, TIM- og §9-numre samt bænkstatus)
-    tjekkes igen mod `origin/main`.
+    er tjekket mod `origin/main` (`fe1787d`) 2026-11-27. Ingen numre er flyttet. NACK-reglen i
+    §9.19 og bænkstatus i §8 er rettet.
   - **Ved konflikt** genbruges D333's kode og mekanisme, mens parametre, som brugeren kan
     mærke (tider, niveauer, tekster, skærmforløb), følger Helios 1.0. Eksempel: D333 dæmper
     efter 10 s, men Helios beholder 8 s (TIM-17).
@@ -1109,19 +1110,19 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 
 | Emne | Kilde | Genbrug | Status i D333 |
 |---|---|---|---|
-| Eksekveringsmodel, superloop med flag-ISR'er | [D333] NFR-010/011, `SW_U3_REBUILD` | Mekanisme 1:1 | _tjekkes_ |
+| Eksekveringsmodel, superloop med flag-ISR'er | [D333] NFR-010/011, `SW_U3_REBUILD` | Mekanisme 1:1 | Intet eget bænkissue. Bærer alle paritetstest på bænken (D333 #52–#56) |
 | DMT-watchdog og reboot-loft | [D333] NFR-013 | 1:1, undtagen RCON-rydningen, som følger §4.12 (WDT-005) | Bænkbevist 2026-10-21 ([D333] NFR-013) |
-| Auto Standby | [D333] FR-107, FR-815, FR-816 (`app_standby.c`) | 1:1 (#1) | _tjekkes_ |
-| Power-sekvenser som tick-baseret state machine | [D333] `svc_power.c` | Mekanisme; trin og tider fra Helios (§4.1) | _tjekkes_ |
+| Auto Standby | [D333] FR-107, FR-815, FR-816 (`app_standby.c`) | 1:1 (#1) | Bænkbevist 2026-06-30 med midlertidig tidsskala (D333 #115) |
+| Power-sekvenser som tick-baseret state machine | [D333] `svc_power.c` | Mekanisme; trin og tider fra Helios (§4.1) | Bænkbevist 2026-06-25, fuld on/off-paritet (D333 #52) |
 | Standby i deep sleep/IDLE med opvågning via INT0/CN | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] | — |
 | Volumen-attenuator med make-before-break | [D333] FR-300–306, `drv_volctl`, `svc_volume` | Mekanisme. Helios har to expandere (L/R), indeks 0–84, tre MBB-faser og balance (§4.3) | Bænkbevist (D333 #54, M9-paritet med Audio Precision) |
 | Ikke-blokerende mute og inputskift med hold på 200/2000 ms | [D333] FR-202, FR-310–316, `svc_mute`, `svc_input`, `app_audio_ctrl` | Mekanisme. Helios' inputs, relæbits og −6 dB-inputs (§4.2) | Bænkbevist (D333 #54, #170, #174, #175) |
 | AV-bypass og level match i volumenkonteksten | [D333] FR-302, FR-355, `SvcVolume_SetContext` | Mekanisme. Helios' AV-inputs 3/4 og indeks 66 | Bænkbevist (D333 #169) |
 | DAC-modul: init, digitalt skift, lock-gate, filtre og status | [D333] FR-203, FR-400–406, `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_dac` | Mekanisme og registersekvenser 1:1. Helios' input-numre 7–11 og S/PDIF-Fs fra Helios' tilstandsmaskine (§9.15) | Bænkbevist (D333 #53, Audio Precision, lukket 2026-07-09) |
-| Retry af fejlet digitalt skift | [D333] §9.28, `svc_dac` | 1:1 (§9.19) | Host-verificeret (D333 #234) |
+| Retry af fejlet digitalt skift | [D333] §9.28, `svc_dac` | 1:1 (§9.19) | Host-verificeret (D333 #234, #245, #408) |
 | Green bias | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] (FR-410) | — |
 | IR: RC5-dekoder, toggle, hold og overlays | [D333] FR-700–704, `drv_ir_rc5`, `app_ir`, `gui_remote_view` | Mekanismen 1:1 med RC5X og Helios' tider (§9.20–9.25). Power-koderne og opvågning fra standby er Helios-specifikke (FR-706) | Bænkbevist (D333 #56, #162, #280 del B) |
-| IR-kilde | [D333] FR-705, `app_settings`, `gui_ir_source` | 1:1, gemmes straks (§9.27) | _tjekkes_ |
+| IR-kilde | [D333] FR-705, `app_settings`, `gui_ir_source` | 1:1, gemmes straks (§9.27) | Bænkbevist 2026-06-30, front/bag (D333 #56) |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._
@@ -1292,10 +1293,15 @@ adfærd, er markeret **(adfærd)**.
       (`Dac_Control.c:926-962`). Fejler en skrivning midtvejs, kan DAC'en blive mutet på det
       gamle input, mens det nye vises.
     - **2.0:** Fejler FR-203 eller lock-gaten (FR-404), husker `svc_dac` det ønskede input og
-      prøver hele DAC-delen igen hver 500 ms, højst 10 gange. En NACK eskalerer straks. Et nyt
+      prøver hele DAC-delen igen hver 500 ms, højst 10 gange. Budgettet gælder både transiente
+      fejl og NACK, for én NACK kan være et glitch på I²C2 ([D333] #408). Kun en
+      programmeringsfejl (`ERR_PARAM`) eskalerer straks. Tjekket for, om DAC'en svarer, lukker
+      stadig på én NACK, men det er selvhelende og bruger ikke budgettet ([D333] #312). Et nyt
       skift starter med fuldt budget, og et skift til et analogt input annullerer ønsket.
     - **Synlig adfærd:** Mens skiftet venter eller er eskaleret, vises "NO SIGNAL" (FR-406).
-    - **Evidens:** host-verificeret i [D333] (`test_svc_dac.c`, #234).
+      [D333] dæmper desuden hængelås-ikonet og viser en eskalering som E31 på SYSTEM
+      ERROR-skærmen (FR-530). Om Helios gør det samme, afgøres i område 6 (§4.10).
+    - **Evidens:** host-verificeret i [D333] (`test_svc_dac.c`, #234, #245, #408).
 20. **IR samples i CN-ISR'en som [D333]** (beslutning 2026-11-27).
     - **Legacy:** ISR'en sætter kun et flag, og main-loopet dekoder senere ud fra antagelsen
       om, at det står på den første faldende flanke (§4.9). Kører main-loopet længe, rammer

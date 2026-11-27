@@ -17,10 +17,15 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. Område 6 (GUI) er
    læst, men fundene står kun i log-posten nedenfor og er ikke skrevet ind i PRD'en endnu.
-   - **Først:** Tjek D333-referencerne i område 1–5 mod D333 `origin/main` (PRD §1). Det lokale
-     D333-checkout er 312 commits bagud og har 28 ucommittede ændringer. Rør det ikke, men læs
-     med `git -C D:/MPLAB/d333 show origin/main:<fil>`.
-   - **Derefter område 6:** Læg fundene i log-posten frem for Michael én ad gangen (§9 eller
+   - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
+     lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
+     `git -C D:/MPLAB/d333 show origin/main:<fil>`.
+   - **Nyt i D333 siden 2026-10-28, som Helios skal tage stilling til** (ét ad gangen):
+     §9.40 mute-lås ved død volumen-expander (#366, område 3), FR-861/§9.42 AV gråtonet i
+     level match (område 6), FR-850/§9.43 MM/MC og ugyldig `pickupSel` (område 6/7), §9.38
+     gammel ACK fjernes før kommandofilen (#417, §4.14) og E31 ved et eskaleret DAC-valg
+     (§9.19, område 6).
+   - **Område 6:** Læg fundene i log-posten frem for Michael én ad gangen (§9 eller
      §10). Skriv legacy-afsnittet i §4.10 og kravene til 2.0: skærmkatalog, display-modes,
      skærmskift med 300 ms, SYSTEM ERROR-skærmens kodetabel, Auto Standby (FR-815, FR-816) og
      GUI-001/002-idiomerne i §3.3.
@@ -44,6 +49,17 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (D333-referencer)
+
+- D333-referencerne i PRD'en er sammenlignet med D333 `origin/main` (`fe1787d`, 2026-11-17).
+  Grundlaget var det lokale checkout (`d0cde33`, 2026-10-28), som område 1–5 blev læst fra.
+- Alle refererede moduler og filer findes. Ingen FR-, TIM- eller §9-numre er flyttet. D333 har
+  tilføjet FR-530, FR-850/860/861 og §9.40–9.45.
+- **Rettet i PRD:** §9.19 havde "en NACK eskalerer straks", men siden D333 #408 bruger NACK
+  budgettet, og kun `ERR_PARAM` eskalerer straks. §8 har nu bænkstatus i stedet for
+  "_tjekkes_": Auto Standby (#115, 2026-06-30), `svc_power` (#52, 2026-06-25), IR-kilde (#56,
+  2026-06-30). Superloopen har intet eget issue og er kun bevist indirekte gennem #52–#56.
 
 ### 2026-11-27 (område 6, læst)
 - **Beslutninger (PRD §1 og §4.10):** D333 læses fra `origin/main`. `SN_SET` udgår.

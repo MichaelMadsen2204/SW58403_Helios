@@ -17,8 +17,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. I område 6 (GUI) er
    de 8 fund placeret, legacy-afsnittet i §4.10 er skrevet, og kravene til skærmkatalog og skift
-   (FR-800–812, FR-880–882) er skrevet, og det samme er SYSTEM ERROR (FR-830) (2026-11-27, se
-   log). Resten af kravene i §4.10 mangler.
+   (FR-800–812, FR-880–882) er skrevet, og det samme er SYSTEM ERROR (FR-830) og Auto Standby
+   (FR-815, FR-816) (2026-11-27, se log). Pickup, AV og GUI-001 mangler stadig i §4.10.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -26,9 +26,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
      FR-861/§9.42 AV gråtonet i level match (område 6), FR-850/§9.43 MM/MC og ugyldig
      `pickupSel` (område 6/7) og §9.38 gammel ACK fjernes før kommandofilen (#417, §4.14).
      §9.40 og E31 er afgjort med FR-830.
-   - **Område 6:** Skriv resten af kravene til 2.0 i §4.10: Auto Standby
-     (FR-815, FR-816), Pickup og AV (sammen med [D333] FR-850 og FR-861) og GUI-001 i §3.3
-     (undersøg Helios' vælgerskærme).
+   - **Område 6:** Skriv resten af kravene til 2.0 i §4.10: Pickup og AV (sammen med [D333]
+     FR-850 og FR-861) og GUI-001 i §3.3 (undersøg Helios' vælgerskærme).
+   - Foreslå §9.35 (baglys på overlayet) og §9.36 (menu-exit ved annullering) tilbage til D333.
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
      UART-hændelseslinjen for IR fastlægges i område 8. Tolkningen af en ugyldig
@@ -50,6 +50,19 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 6, Auto Standby)
+
+FR-815 og FR-816 er skrevet i §4.10, TIM-24 og TIM-25 i §5, og §9.34–9.36 er tilføjet (Michael):
+
+- Menupunktet står nederst til venstre på Exit-rækken. De 10 eksisterende knapper flytter sig ikke.
+- +/− gentager ved tryk-hold som D333. Det gælder nu også volSettings (§9.34, FR-303).
+- Enhver gyldig IR-frame nulstiller nedtællingen, også én, der kun tænder displayet. Frames,
+  der sluges, fordi de har samme toggle, nulstiller ikke (FR-707).
+- Overlayet vises med 100 % baglys, og `T_DIM` står stille (§9.35). D333 sætter ikke baglyset.
+- Annullering fra menuen kører menu-exit, så mute ikke bliver hængende (§9.36). D333 går
+  direkte til action.
+- Kilde: D333 `app_standby.c` og `gui_auto_timeout_overlay.c` på `origin/main` (`fe1787d`).
 
 ### 2026-11-27 (område 6, SYSTEM ERROR)
 

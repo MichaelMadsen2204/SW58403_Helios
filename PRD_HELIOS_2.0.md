@@ -569,6 +569,7 @@ grænser og tider er Helios' egne.
   - Startniveauet ligger mellem 0 og 66, og maxniveauet mellem 20 og 84.
   - De følger hinanden som i legacy og klemmes ind i grænserne ved indlæsning.
   - Defaults er start 0 og max 84.
+  - +/− på `volSettingsScreen` giver tryk-hold-gentagelse som FR-304 (§9.34).
   - Værdierne gemmes, når skærmen forlades.
   - Ved tænding er niveauet lig startniveauet.
 - **FR-304 (repeat):**
@@ -1037,7 +1038,9 @@ Numrene følger [D333] FR-700–705. FR-706 og FR-707 er Helios-specifikke.
       nyt tryk kommer.
   - **Dæmpet display:** Displayet tændes, og kommandoen udføres.
   - **Efter en accepteret kommando** genstartes T_DIM og på action-skærmen T_ACTIONVIEW.
-    Auto Standby-nedtællingen nulstilles også, som [D333] FR-107.
+  - **Auto Standby:** Nedtællingen nulstilles af enhver gyldig frame, også én, der kun tænder et
+    slukket display, som [D333] FR-107. Frames, der sluges, fordi de har samme toggle, nulstiller
+    ikke (beslutning 2026-11-27).
 
 **UART-orakel:** Hver accepteret IR-kommando skal give en hændelseslinje på UART'en, så
 bænktesten i §9.20 kan automatiseres (HIL-003). Formatet fastlægges i område 8.
@@ -1138,6 +1141,19 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
   2.0 kører fade'en fra tick og blokerer ikke (§9.31).
 - **FR-882 (menu):** Når menuen åbnes, stoppes display-timerne, og baglyset sættes til 100 %.
   Mute og genskrivning af niveauet følger FR-314. Når menuen forlades, vises action.
+- **FR-815 (`autoStandby`-menuskærm):** Følger [D333] FR-815.
+  - Valget er OFF eller 1–10 t i trin på 1 t. Default er OFF.
+  - +/− giver tryk-hold-gentagelse som FR-304 (§9.34).
+  - Værdien gemmes, når skærmen forlades. Adressen fastlægges i område 7 (§4.11).
+  - Menupunktet er altid synligt. Det står nederst til venstre i `mainMenuScreen`, på samme række
+    som Exit, og de 10 eksisterende knapper flytter sig ikke (beslutning 2026-11-27).
+- **FR-816 (`autoStandbyWarning`-overlay):** Følger [D333] FR-816 med `T_AUTOSTBY_WARN` = 30 s
+  (TIM-25). Overlayet tæller de resterende sekunder ned. Ud over [D333] gælder:
+  - **Baglys:** Mens overlayet vises, er baglyset 100 %, og `T_DIM` står stille, som i menuen
+    (FR-882). Når overlayet forlades, gælder FR-880 (§9.35).
+  - **Annullering:** Enhver touch og enhver gyldig IR-frame annullerer slukningen og nulstiller
+    nedtællingen (FR-107, FR-707). Derefter vises action. Var menuen åben, køres menu-exit
+    (FR-882), så undermenuens værdi gemmes, og mute og niveau genskrives (§9.36).
 - **FR-830 (SYSTEM ERROR, beslutning 2026-11-27):** Følger [D333] FR-530 med samme tekst, niveauer,
   kvittering og navigation (`app_health`, `gui_system_error`, §9.33). Kodetabellen er tilpasset
   Helios' busser. På I2C1 sidder touch. På I2C2 sidder U26, EEPROM 0x50/0x51
@@ -1216,6 +1232,8 @@ _Område 9._
 |---|---|---|---|
 | TIM-16 | `T_ACTIONVIEW` | 6 s (D333: 6 s) | `app.h:84` |
 | TIM-17 | `T_DIM` | 8 s (Helios-værdi bevares; D333: 10 s) | `app.h:85` |
+| TIM-24 | `T_AUTOSTBY` | OFF eller 1–10 t, i trin på 1 t (som D333) | FR-107, FR-815 (ny i 2.0) |
+| TIM-25 | `T_AUTOSTBY_WARN` | 30 s (som D333) | FR-816 (ny i 2.0) |
 | TIM-xx | `T_SCREENSWAP` | 300 ms | `app.h:86` |
 | TIM-xx | Debounce on/off-knap og 12V-link | 20 ms | `On_Off_Control.c:277`, `:743`, `:760` |
 | TIM-xx | IR-poll-vindue ved opvågning (udgår i 2.0, §9.25) | 500 ms | `IR_control.c:34` |
@@ -1601,6 +1619,27 @@ adfærd, er markeret **(adfærd)**.
     [D333] §9.41.
     - **Legacy:** `errorDisplay` vises ingen steder (§4.10). I²C-fejl ses højst i UART-loggen.
     - **2.0:** Koderne og reglerne står i FR-830.
+34. **(adfærd) Tryk-hold gentager på volSettings og autoStandby** (beslutning 2026-11-27), som
+    [D333] §9.10.
+    - **Legacy:** Start- og maxniveau ændres ét trin pr. tryk, og `OnReleased` er tom
+      (`Screen_Volume_Settings.c:63-107`, kode læst).
+    - **2.0:** +/− genbruger [D333]'s `gui_vol_repeat` med samme timing og stopregler som FR-304
+      (FR-303, FR-815). Der gemmes stadig først ved exit, så hold slider ikke på EEPROM'en.
+    - **Synlig adfærd:** Holdes +/− nede, gentages trinnet. Et kort tryk giver ét trin som før.
+35. **(adfærd) Auto Standby-advarslen vises med fuldt baglys** (beslutning 2026-11-27, FR-816).
+    - **Legacy:** Funktionen findes ikke.
+    - **Forskel fra [D333]:** `gui_auto_timeout_overlay.c` sætter ikke baglyset, så advarslen
+      vises på 0 % ved auto-off og på 15 % ved auto-dim (kode læst på `origin/main`).
+    - **2.0:** Baglyset er 100 %, og `T_DIM` står stille, mens overlayet vises.
+    - **Synlig adfærd:** Advarslen kan altid ses. Bør foreslås tilbage til [D333].
+36. **(adfærd) Annulleret Auto Standby i menuen går ud via menu-exit** (beslutning 2026-11-27,
+    FR-816).
+    - **Legacy:** Funktionen findes ikke.
+    - **Forskel fra [D333]:** Annullering viser altid `actionScreen` direkte. På Helios muter
+      menuen (FR-882, FR-314), så en åben menu ville efterlade lyden mutet.
+    - **2.0:** Annullering viser stadig action. Var menuen åben, køres den normale menu-exit først:
+      undermenuens `OnHide` gemmer, niveauet genskrives, og mute hæves efter FR-314.
+    - **Synlig adfærd:** Brugeren lander på action med lyd, som efter Exit i menuen.
 
 ---
 

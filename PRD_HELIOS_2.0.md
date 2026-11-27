@@ -1732,6 +1732,20 @@ adfærd, er markeret **(adfærd)**.
     - **2.0:** Én teknik, hvor knappen er ikke-toggleable, og released-image skiftes. Visning kalder
       ingen handler, og kun et tryk ændrer modellen.
     - **Synlig adfærd:** Ingen tilsigtet. Valget vises som i 1.0.
+40. **Boot-tælleren øges én gang pr. tænding** (beslutning 2026-11-27, §4.11).
+    - **Legacy:** Tælleren er 16 bit LE på `0x84–0x85` og øges to gange i ON4:
+      `APP_USB_CMD_OnPowerOnIncrement` (`On_Off_Control.c:963` → `app_usb_cmd.c:196`) og
+      `incBootCounterInEEProm` (`On_Off_Control.c:967`). Fra en tom EEPROM giver 0xFFFF + 1
+      værdien 0 (`eeProm_Functions.c:538-546`, kode læst).
+    - **2.0:** Følger [D333] FR-1303 (§9.38, #227) med Helios' adresse og bredde:
+      - Tælleren øges én gang pr. godkendt tænding (AC godkendt og ingen boot-fejl), lige før
+        tænd-sekvensen, og ikke ved en AC-fejl eller en boot-fejlskærm.
+      - 0xFFFF læses som 0. Tom-værdien skrives aldrig, så tælleren mætter på 0xFFFE.
+      - Kan tælleren ikke læses, skrives der ikke, og opstarten fortsætter.
+    - **Forskel fra [D333]:** [D333] har 32 bit på `0x070–0x073`. Helios beholder 16 bit på
+      `0x84–0x85` fra 1.0, for `0x86` (FR-111) ligger lige efter.
+    - **Synlig adfærd:** Kun i service-rapporten (`BOOT COUNTER`, `app_usb_cmd.c:181`). En enhed fra
+      marken fortsætter fra sit gemte tal, som er cirka det dobbelte af antallet af tændinger under 1.0.
 
 ---
 

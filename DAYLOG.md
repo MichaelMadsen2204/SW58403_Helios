@@ -19,7 +19,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    de 8 fund placeret, legacy-afsnittet i §4.10 er skrevet, og kravene til skærmkatalog og skift
    (FR-800–812, FR-880–882) er skrevet, og det samme er SYSTEM ERROR (FR-830) og Auto Standby
    (FR-815, FR-816), Pickup og AV (FR-850, FR-855, FR-861) og GUI-001 (§3.3, §9.39)
-   (2026-11-27, se log). **Område 6 er gennemgået.** Næste område er 7.
+   (2026-11-27, se log). **Område 6 er gennemgået.** Område 7 er læst, og fund 1 er placeret
+   (§9.40). Fund 2–7 venter (se log "område 7, læst").
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -50,6 +51,42 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 7, læst)
+
+Persistens er læst i `eeProm_Functions.c` (uændret siden `v1.0`) og [D333] PRD §4.11 på
+`origin/main` (`fe1787d`):
+
+- **Layout (0x50):**
+  - 0x00 curInp. 0 gemmes aldrig og ignoreres ved læsning (`:206`, `:340`).
+  - 0x01–0x03: startLvl, maxLvl, balance.
+  - 0x04: dispMode med simpleView i bit 7.
+  - 0x05 irSource og 0x06 avInp.
+  - 0x07–0x0A: pcm, dsd (reserveret), dsdLp, digiGain.
+  - 0x0B pickup og 0x0C greenBias. 0x0D–0x0F er reserveret, og defaults skriver 0.
+  - 0x10–0x15 inpSens[1..6], og 0x16–0x1F skrives til 0.
+  - 0x20–0x77: 11 navne à 8 B.
+  - 0x80–0x83 SN, 0x84–0x85 boot-tæller (16 bit LE) og 0x86 spændingssetting. Kommentaren
+    `:503` siger 0x0D, men den er forkert.
+  - Fejlstatus på 0x51:0x00 kaldes aldrig.
+  - Chippen ligner en 24LC04B (0x50/0x51, 16 B pages), men det er ikke bekræftet.
+- **Første boot:** Er `curInp > 11`, skrives defaults (`On_Off_Control.c:934`).
+- **IR i standby (område 5):** ON4 genlæser `curInp` fra EEPROM (`On_Off_Control.c:932`, `:940`),
+  så et input valgt i standby overskrives.
+- **PRD §4.11** henviser til #1 for layoutet, men det står ikke dér.
+- **Fund til placering:**
+  1. Boot-tælleren tæller 2 pr. tænding. **Placeret: §9.40** (16 bit, D333 FR-1303).
+  2. Der er ingen validering ved indlæsning ud over volumen (`:45-53`). Det dækker også de
+     åbne spørgsmål om avInp og IR-kilden. [D333] tolker alt andet end front som bag, og avInp
+     som en bitmaske.
+  3. De to default-veje er forskellige. UART-fabriksreset (`uart_control.c:411`) genindlæser
+     hverken navne eller værdier, og ingen af vejene sætter `dsdFilter` eller `curInp` i RAM.
+  4. Skrivefejl ignoreres, og der er ingen persist-guard og ingen read-compare-write ([D333]
+     FR-1001, FR-1002).
+  5. Blokerende `while (I2C2_IsBusy());` uden timeout (`:99`, `:115`, `:125`).
+  6. Fejlstatus på 0x51 er død. Skal FR-830 gemme noget, som [D333] gør på 0x100?
+  7. Adresse til Auto Standby. Ledigt: 0x0D–0x0F (1.0's restore skriver 0), 0x78–0x7F og
+     0x87–0xFF (aldrig skrevet).
 
 ### 2026-11-27 (område 6, GUI-001)
 

@@ -25,7 +25,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    læst**, og alle 10 fund er placeret (§9.52–9.58, §10.6, se log "område 9, læst"). §4.14 er skrevet
    (FR-1300–1303). **Område 9 er gennemgået.** Alle 9 områder er nu gennemgået. **§4.13
    (bootloader-kontrakt) er gennemgået** (kontrakttabel, FR-1100, FR-1101, §9.59–9.61, §10.7, se
-   log "§4.13"). Det næste er de tomme afsnit §1 og §5–§7.
+   log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). Det næste er §6
+   (fejlkode- og statusmodel, ud fra [D333] §6 og FR-830) og derefter §7 (test-krav, ud fra
+   [D333] §7 og HIL-001…006).
    - **Åbent fra §4.13:** Hvad er RA5 fysisk (§11.7)? §10.7 bygger på, at kun en tekniker kan nå
      den.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
@@ -54,6 +56,18 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§1 og §5)
+
+- **§1:** Produktet og begrundelsen for ombygningen står nu i §1. Begrundelsen bygger kun på fund,
+  der allerede står i PRD'en (§3.2, §5, §9.59, MCC-001). Phono- og DAC-modulet er begge valgfri
+  (Michael).
+- **Mappenavn afgjort:** `App2/` ved siden af `App/` (§1, §11.1 markeret afgjort).
+- **§5:** Alle TIM-numre er tildelt. D333's nummer bruges kun ved samme rolle (TIM-04, 08, 09,
+  15–20, 22–25), med Helios' værdi. Helios-specifikke numre ligger fra TIM-50 i blokke pr. område
+  (power 50–59, GUI 60–64, IR 65–69, input 70–74, DAC 75–79), så de ikke kolliderer med nye
+  D333-numre. Helios' ON-trin får ikke D333's TIM-01–05, fordi trinene gør noget andet. Rækken
+  med IR-poll-vinduet er fjernet (§9.25). FR-850 peger nu på TIM-19.
 
 ### 2026-11-27 (§4.13)
 

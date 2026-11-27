@@ -37,10 +37,6 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    for hvert område, og gennemgå 1.0 for Helios-specifikke forskelle. Ved konflikt gælder
    D333's kode og Helios 1.0's parametre, som brugeren kan mærke.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
-3. **Rettelser til fælles erfaringer, venter på Michaels ja:**
-   - SVC-009 siger, at Helios kan resette under afspilning. Det sker ikke, for USB behandles
-     kun i standby (`tasks.c:93`).
-   - GUI-002 er for snæver. Composer kan også inkludere eksplicitte glyf-intervaller.
 
 ## Log
 
@@ -60,6 +56,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
   - Green bias på AV bruger 66 (§9.18).
   - Filtret går rundt på IR og stopper på touch (§10.2).
   - Green bias følger `curLvl` (§10.3).
+- **Fælles erfaringer:** WDT-005 er afgjort og har givet et krav om reset-årsag i §4.12.
+  Vandmærket er nu WDT-005. Tilføjelser til SVC-009 (Helios er ikke ramt) og GUI-002
+  (glyf-intervaller) er skrevet i `claude-setup`.
 - **Åbent:** expander-navne (§11.5) og hardwarespørgsmål (§11.6). Digital gain støtter 1 dB pr.
   trin (§11.4). FR-320 bruges ikke i D333.
 

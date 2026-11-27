@@ -21,12 +21,28 @@
 
 ## 1. Formål og scope
 
-_Udfyldes. Kilde: beslutningerne i #1 (2026-11-26)._
+Helios er en forforstærker med touchdisplay (480×272), IR-fjernbetjening, analog
+relæ-volumenkontrol med level match, et valgfrit phono-modul og et valgfrit DAC-modul.
+
+FW 1.0 er i marken og virker. Men hardware-adgang, policy og UI er vævet sammen i moduler som
+`On_Off_Control.c` og `screen_Action.c`. Der udføres arbejde i interrupt-kontekst (§3.2), og
+der ventes blokerende i power-, input- og DAC-forløbene (§5). `appData.state` skrives fra en ISR
+og 26 andre steder (§9.59), og genereret kode er rettet i hånden (MCC-001). Dette PRD beskriver
+en genopbygning:
+
+- **Samme hardware, samme funktionalitet, samme brugeroplevelse.** Afvigelser fra 1.0 er
+  bevidste og står i §9. Adfærd, der bevares, selv om den kan ligne en fejl, står i §10.
+- **Ny arkitektur** efter [CONV] §1 med lag, services, state machines, fejlpropagering og
+  host-tests (§3, §7).
+- Hardware-parametre fra 1.0 (registerværdier, relætabeller, tider) overtages 1:1, medmindre
+  §9 siger andet.
+
+Beslutningerne i #1 (2026-11-26 og 2026-11-27):
 
 - 2.0 er en ny arkitektur, der bevarer 1.0's adfærd. 1.0 er spec og orakel.
 - **Auto Standby** er den eneste nye funktion og følger [D333] FR-107, FR-815 og FR-816 1:1.
-- 2.0 ligger i en ny mappe ved siden af `App/` med eget MPLAB-projekt og `tests/`. `App/`
-  (1.0) forbliver byggbar. Mappenavnet fastlægges her (åbent, §11).
+- 2.0 ligger i mappen `App2/` ved siden af `App/` med eget MPLAB-projekt og `tests/`. `App/`
+  (1.0) forbliver byggbar (beslutning 2026-11-27, §11.1).
 - **Genbrug af D333 (beslutning 2026-11-27):** Helios og D333 kan sammenlignes på mange
   områder. Findes der en løsning i D333, som er implementeret og testet, bruger Helios 2.0
   den. Kilden er D333's rebuild af U3 (`D:/MPLAB/d333/SW_U3_REBUILD`, samme MCU). Gennemgangen
@@ -2407,7 +2423,7 @@ _Udfyldes under område 2–9._
 
 ## 11. Åbne spørgsmål
 
-1. **Mappenavn** for 2.0 ved siden af `App/` (#1).
+1. ~~**Mappenavn** for 2.0 ved siden af `App/` (#1).~~ **Afgjort 2026-11-27:** `App2/` (§1).
 2. **Bit-identitet:** Er `v1.0` bit-identisk med det image, der er i marken? (#1) Det samme gælder
    BTL 1.0, hvis hex fryses til den samlede hex (§9.61).
 3. **Kendte fejl og klager fra marken** er ikke samlet (#1). De er gode testcases.

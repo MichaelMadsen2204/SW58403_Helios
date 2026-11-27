@@ -27,8 +27,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (bootloader-kontrakt) er gennemgået** (kontrakttabel, FR-1100, FR-1101, §9.59–9.61, §10.7, se
    log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). **§6 og §7 er skrevet** (se log "§6" og "§7").
    Det næste er §2 (hardware-platform: busser, adresser, GPIO, interrupts) og §3.1 (lagdeling og
-   modulopdeling, ud fra [D333] §3.1). Derefter skal de forældede "_Udfyldes_"-noter i §4, §8 og §10
-   ryddes op.
+   modulopdeling, ud fra [D333] §3.1). De forældede "_Udfyldes_"-noter i §4, §8 og §10 er ryddet
+   op, og §8 har fået rækker for område 6–9 og §4.13 (se log "§8"). Fire rækker står som "Tjekkes".
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -54,6 +54,15 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§8)
+
+- `_Udfyldes_`-noterne i §4 og §10 er fjernet. Noterne i §2 og §3.1 er bevaret, fordi afsnittene
+  stadig er tomme.
+- §8 har fået rækker for GUI, pickup/AV, persistens, UART, servicestick og bootloader-kontrakten.
+  Status er hentet fra D333's PRD på `origin/main` (`fe1787d`).
+- "Tjekkes": GUI som helhed, pickup/AV, persistens og `check_btl_contract.py`. D333's PRD nævner
+  ingen bevis for dem. De skal slås op i D333's issues.
 
 ### 2026-11-27 (§11.6)
 

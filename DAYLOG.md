@@ -27,13 +27,12 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    - **Nyt i D333 siden 2026-10-28, som Helios skal tage stilling til:** §9.38 gammel ACK
      fjernes før kommandofilen (#417, §4.14). FR-861/§9.42 og FR-850/§9.43 er afgjort
      (Helios §9.37, §9.38), og §9.40 og E31 er afgjort med FR-830.
-   - **Område 7:** Bekræft adresserne `0x0B` (pickup) og `0x06` (AV), og afgør, hvordan en `avInp`
-     med andre bit end 0 og 1 tolkes (fx `0xFF` fra en tom EEPROM).
+   - **Område 7:** Adresserne `0x0B` (pickup) og `0x06` (AV) er bekræftet. Ugyldige værdier,
+     også `avInp` og IR-kilden, giver default (§9.41).
    - Foreslå §9.35 (baglys på overlayet) og §9.36 (menu-exit ved annullering) tilbage til D333.
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
-     UART-hændelseslinjen for IR fastlægges i område 8. Tolkningen af en ugyldig
-     EEPROM-værdi for IR-kilden afgøres i område 7.
+     UART-hændelseslinjen for IR fastlægges i område 8.
    - **Åbent fra område 4 og 6:** §11.6 har fem hardwarespørgsmål til Michael (U26 bit 1.2,
      autoincrement på DAC-modulets expander, polariteten på green bias, udgangsniveauet ved
      høj-Z på U16/U20 og om standby er en POR af expanderne). FR-403 og FR-406
@@ -78,7 +77,7 @@ Persistens er læst i `eeProm_Functions.c` (uændret siden `v1.0`) og [D333] PRD
   1. Boot-tælleren tæller 2 pr. tænding. **Placeret: §9.40** (16 bit, D333 FR-1303).
   2. Der er ingen validering ved indlæsning ud over volumen (`:45-53`). Det dækker også de
      åbne spørgsmål om avInp og IR-kilden. [D333] tolker alt andet end front som bag, og avInp
-     som en bitmaske.
+     som en bitmaske. **Placeret: §9.41** (en ugyldig værdi giver default i RAM).
   3. De to default-veje er forskellige. UART-fabriksreset (`uart_control.c:411`) genindlæser
      hverken navne eller værdier, og ingen af vejene sætter `dsdFilter` eller `curInp` i RAM.
   4. Skrivefejl ignoreres, og der er ingen persist-guard og ingen read-compare-write ([D333]

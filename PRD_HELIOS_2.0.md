@@ -1638,8 +1638,8 @@ adfærd, er markeret **(adfærd)**.
     - **2.0:** [D333] FR-705 1:1 (`app_settings`, `gui_ir_source`). Valget lægges ud på
       pinden og gemmes straks. Kodningen er 1 = front og 0 = bag, og standardværdien er front.
       Begge dele er ens i Helios og [D333].
-    - **Ugyldig EEPROM-værdi:** Hvordan den tolkes, afgøres i område 7. [D333] tolker kun 1
-      som front. Om den validerer ved indlæsning, er ikke tjekket.
+    - **Ugyldig EEPROM-værdi:** Den giver front (§9.41). [D333] tolker kun 1 som front og
+      validerer ikke ved indlæsning.
 28. **Inputnavne er data, aldrig format** (beslutning 2026-11-27).
     - **Legacy:** Tastaturet tillader `%` i et inputnavn (`Screen_Qwerty_Keypad.c:36`). Navnet
       bruges som format i `sprintf(cCharBuffer2, inpNames[...])` (`Screen_SimpleView.c:51`,
@@ -1746,6 +1746,31 @@ adfærd, er markeret **(adfærd)**.
       `0x84–0x85` fra 1.0, for `0x86` (FR-111) ligger lige efter.
     - **Synlig adfærd:** Kun i service-rapporten (`BOOT COUNTER`, `app_usb_cmd.c:181`). En enhed fra
       marken fortsætter fra sit gemte tal, som er cirka det dobbelte af antallet af tændinger under 1.0.
+41. **(adfærd) En ugyldig EEPROM-værdi giver sin default i RAM** (beslutning 2026-11-27, §4.11),
+    som pickup i §9.37.
+    - **Legacy:** Kun volumen valideres (`eeProm_Functions.c:45-53`). Alle andre bytes bruges, som
+      de er (`:199-250`, kode læst). Under [D333]'s bitmaske ville `avInp = 0xFF` gøre input 3
+      og 4 til AV med fast niveau 66 (§9.18).
+    - **2.0:** Hver byte har et gyldigt område. En værdi uden for området erstattes af sin
+      default i RAM, og byten rettes først ved næste gemning:
+
+      | Byte | Gyldigt | Ugyldig giver |
+      |---|---|---|
+      | curInp | 1–11 (over 11 skriver defaults, som legacy) | 0 giver 1 |
+      | startLvl, maxLvl | clamp som legacy (0–66, startLvl–84) | clamp |
+      | balance | 0–12 | 6 (midten) |
+      | dispMode (bit 0–6) | 0–5 | modeDim |
+      | irSource | 0 og 1 | 1 (front) |
+      | avInp | kun bit 0 og 1 | 0 (ingen AV) |
+      | pcmFilter | 1–7 | 4 |
+      | dsdLpFilter, digiGain, greenBias | 0 og 1 | 0, 1, 0 |
+      | pickup | §9.37 | MM |
+      | inpSens[1..6] | 0–8 | 0 |
+
+    - **Forskel fra [D333]:** [D333] tolker en irSource uden for front som bag og avInp som en
+      bitmaske uden validering (`app_settings.c:36`, `:73`).
+    - **Synlig adfærd:** Kun ved en korrupt byte. Så starter den indstilling på sin default i
+      stedet for en udefineret værdi.
 
 ---
 

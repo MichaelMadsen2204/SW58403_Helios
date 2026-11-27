@@ -49,6 +49,59 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Log
 
+### 2026-11-27 (område 8, læst)
+
+UART-testinterfacet er læst i `uart_control.c` (uændret siden `v1.0`), `app.c` og
+`On_Off_Control.c`, og [D333] PRD §4.12, §9.9, §9.29, §9.35 og §9.45 er læst på `origin/main`
+(`fe1787d`):
+
+- **Linjen:** UART1 kører 115200 8N1 (BRG 162 med BRGH og PBCLK2 75 MHz,
+  `plib_uart1.c:94-100`, `plib_uart1.h:64`). RX polles uden ringbuffer, og stdio går til UART1.
+  TX venter på UTXBF uden timeout (`plib_uart1.c:225`).
+- **Hvor kommandoer læses:** På actionScreen og simpleView efter opstart (`app.c:192`, `:214`) og
+  i `APP_STATE_IDLE` uden opstartstjek (`app.c:280`). `APP_STATE_IDLE` er hovedmenuen og
+  init-tilstanden. Om den også gælder i standby, er ikke afklaret. RX tømmes i ON5
+  (`On_Off_Control.c:975`).
+- **Rammen `$c:vv;`** (`uart_control.c:313`): Der ventes 10 ms blokerende, og så læses alt i
+  FIFO'en. Kun position 0, 2 og 5 tjekkes. Værdien læses med `sscanf("%2hhu")`, så `$1:0X;` giver
+  værdien 0 og udføres. Står der flere rammer i FIFO'en, udføres kun den første.
+  Kvitteringen er `#c:vv;\r\n`.
+- **Kommandoer:**
+  - `1` volumen: over maxLvl ignoreres, og kvitteringen viser curLvl.
+  - `2` input: `≤ maxInp` accepteres, også 0. Mute og relæ skiftes med 50 ms blokerende ventetid,
+    og der gemmes ikke.
+  - `3` mute: alt andet end 1 er unmute.
+  - `5` IR-kilde: pinden sættes direkte, uden appData og uden EEPROM. Kvitteringen gentager alle
+    værdier, også ugyldige.
+  - `6` fabriksreset (§9.42).
+  - `8:00` FW og spændingssetting.
+  - `9:00` SN.
+  - `T`/`H`/`t`/`S` er SN-cifre, og `S` gemmer.
+  - `B` er AC-resultatet.
+  - Over 9 på T/H/t/S/B giver hverken kvittering eller fejl.
+  - [D333] har også `4`, `C`, `D`, `E`, `I`, `N` og `W`.
+- **Fejltekster:** `uart read error`, `uart parse error` og `uart unknown command '<c>'`.
+- **Faste linjer:** `#0:01;` når tændsekvensen er færdig (`On_Off_Control.c:1093`), og `#0:00;` ved
+  sluk (`:1134`). Ellers kommer der kun `left missing` og `left ok - reset` (`:455`, `:469`) og to
+  EEPROM-læsefejl (`eeProm_Functions.c:237`, `:246`). `DEBUG_PRINT` er slået fra i 1.0
+  (`app.h:61`), så der er ingen boot-linje og ingen reset-årsag.
+- **Overrun:** OERR ryddes aldrig. På PIC32 stopper modtagelsen, til OERR ryddes, så én overrun gør
+  kommando-UART'en død til næste reset. Det er kode læst og ikke målt.
+- **Fund til placering:**
+  1. Der er ingen boot-linje og ingen hændelseslinjer (HIL-003). [D333] har `[BOOT]`, `$D` til fri
+     tekst (§9.29) og BTL-version (§9.45). **Placeret: §9.44** (`[BOOT]` og `$D` som [D333], ingen
+     BTL-linje).
+  2. Rammevalideringen er løs (`$1:0X;` udføres). [D333] §9.9 kræver cifre.
+  3. OERR ryddes ikke.
+  4. `$2:00;` sætter curInp til 0.
+  5. `$5` opdaterer hverken appData eller EEPROM og kvitterer ugyldige værdier.
+  6. Værdier over 9 afvises tavst, og fejlteksterne er fri tekst.
+  7. TX blokerer uden timeout, og der er 10 ms og 50 ms blokerende ventetid. [D333] §9.35 binder
+     TX pr. byte.
+  8. Hvilke af [D333]'s ekstra kommandoer skal Helios have (`C`, `D`, `E`, `I`, `N`, `W`)?
+  9. Hvor er interfacet aktivt? [D333] lytter også i fejltilstand.
+  10. Baudraten: Helios har 115200. Teststativer afhænger af den, så den bevares som parameter.
+
 ### 2026-11-27 (område 7, læst)
 
 Persistens er læst i `eeProm_Functions.c` (uændret siden `v1.0`) og [D333] PRD §4.11 på

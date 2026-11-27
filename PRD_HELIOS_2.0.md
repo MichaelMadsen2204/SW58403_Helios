@@ -1870,6 +1870,26 @@ adfærd, er markeret **(adfærd)**.
       - Der skrives aldrig før første vellykkede load, og aldrig under opstart (FR-1002).
       - Timeouts følger NFR-012, og ventetiden følger NFR-011.
     - **Synlig adfærd:** Ingen tilsigtet. En hængt bus låser ikke længere apparatet.
+44. **(ny udviklertekst) Boot-linje og fri tekst gennem én kontakt** (beslutning 2026-11-27,
+    §4.12), som [D333] §9.29.
+    - **Legacy (kode læst):** `DEBUG_PRINT` er slået fra (`app.h:61`). Det eneste faste output er
+      `#0:01;` og `#0:00;` (`On_Off_Control.c:1093`, `:1134`). Ellers kommer der kun fire løse
+      `printf` (`On_Off_Control.c:455`, `:469`, `eeProm_Functions.c:237`, `:246`). Der er ingen
+      boot-linje og ingen reset-årsag.
+    - **2.0:**
+      - Ved hver boot skrives en `[BOOT]`-linje med produkt, build og den gemte RCON (§4.12).
+        Formatet fastlægges i §4.12.
+      - Al fri udviklertekst, også de fire linjer fra 1.0, går gennem én kontakt (`drv_dbglog`
+        som i [D333]).
+      - `$D:00;` slukker kontakten, og `$D:01;` tænder den. Kvitteringen `#D:xx;` viser den
+        faktiske tilstand. Kontakten er ikke persistent og er tændt ved boot, ellers kan
+        `[BOOT]` aldrig ses (HIL-003).
+      - Kvitteringer og statuslinjer (`#..;`) går ikke gennem kontakten.
+      - Udgangen er bundet og kan ikke hænge opstarten.
+      - [D333]'s BTL-versionslinje (§9.45) springes over. BTL 1.0 har ingen versionsblok (§4.13),
+        så linjen ville altid vise det samme. Den tages op igen med BTL 2.0 (#2).
+    - **Synlig adfærd:** Der kommer nye linjer uden `#` på UART'en. Et teststativ, der læser
+      1.0's output, skal ignorere linjer, der ikke starter med `#`.
 
 ---
 

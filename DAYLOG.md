@@ -28,9 +28,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). **§6 og §7 er skrevet** (se log "§6" og "§7").
    **§2 er skrevet** ud fra MCC-tilstanden (se log "§2"). To spørgsmål til diagrammet står åbne:
    hvem driver `IO_EXP_INT` (RC2), og hvad er `SN_CHANGE`, `WAKE_UP` og `BSP_MAXTOUCH_CHG`.
-   **§3.1 er skrevet** ud fra D333's kode, og §11.5 er afgjort (se log "§3.1"). Det næste er de
-   fire "Tjekkes"-rækker i §8. Find også ud af, om `drv_ddr` (USBH-010) skal have en række dér. De forældede "_Udfyldes_"-noter i §4, §8 og §10 er ryddet
-   op, og §8 har fået rækker for område 6–9 og §4.13 (se log "§8"). Fire rækker står som "Tjekkes".
+   **§3.1 er skrevet** ud fra D333's kode, og §11.5 er afgjort (se log "§3.1"). **§8 er færdig:**
+   De fire "Tjekkes"-rækker har fået status fra D333, og `drv_ddr` har fået en række (se log
+   "§8 status"). De forældede "_Udfyldes_"-noter i §4, §8 og §10 er ryddet op.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -56,6 +56,16 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§8 status)
+
+- De fire "Tjekkes"-rækker er udfyldt fra D333's `origin/main` (`fe1787d`), issues og DAYLOG: GUI
+  (#45, #51), pickup og AV (#421, #424 og #172, bænk 2026-11-03), persistens (#55, bænk 2026-07-01,
+  rollback #403/#411 kun host-testet) og BTL-vagten (ctest, negativt tjekket).
+- Ny række: `drv_ddr` og `check_ddr_contract.py` (USBH-010, D333 #249/PR #262, bænkbevist).
+- **Fund:** Hvis bootloaderens header mangler, springer D333's `check_btl_contract.py` over med exit 0.
+  I Helios ligger BTL i samme repo, så vagten skal pege på `BTL/src` og fejle (beslutning).
+- Linjen, der forklarede "Tjekkes", er fjernet fra §8.
 
 ### 2026-11-27 (§3.1)
 

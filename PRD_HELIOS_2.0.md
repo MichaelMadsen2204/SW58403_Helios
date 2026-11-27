@@ -1778,15 +1778,13 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | IR-kilde | [D333] FR-705, `app_settings`, `gui_ir_source` | 1:1, gemmes straks (§9.27) | Bænkbevist 2026-06-30, front/bag (D333 #56) |
 | SYSTEM ERROR med fejlkoder | [D333] FR-530, §9.41, `app_health`, `gui_system_error` | Mekanismen 1:1. Kodetabellen er Helios' (FR-830), med E22–E24 og hjerteslag på U26 | Host-testet (`test_app_health.c`). Skærmen er bænkbevist for E21, E11 og E42 (D333 #392) |
 | Mute-lås ved død volumen-expander | [D333] §9.40, `SvcMute_LockMuted` | 1:1, men udløst af U16/U20 og I2C3 (§9.32) | Bænkbevist 2026-10-27 (D333 #366) |
-| GUI: skærmkatalog, skift, display-modes og PWM | [D333] FR-800–816, `gui_*`, `gui_bridge` | Mekanisme. Helios' skærme, `T_DIM` = 8 s og overlays (§4.10) | Tjekkes. Delvist bænkbevist: Auto Standby (D333 #115), IR-overlays (D333 #56) og SYSTEM ERROR (D333 #392) |
-| Pickup og AV i level match | [D333] FR-850, FR-861 (§9.42–9.43 i [D333]) | 1:1. Pickup bruger Helios' relæbit og tider (§4.10) | Tjekkes |
-| Persistens: driver, persist-guards og fabriksreset | [D333] FR-1000–1012, `svc_settings`, `drv_eeprom` | Mekanisme. Helios' layout og adresser (§4.11) | Tjekkes |
+| GUI: skærmkatalog, skift, display-modes og PWM | [D333] FR-800–816, `gui_*`, `gui_bridge` | Mekanisme. Helios' skærme, `T_DIM` = 8 s og overlays (§4.10) | Intet samlet GUI-paritetsissue. Skærmene er host-testet og target-bygget, og `gui_stubs` er regenereret med 0 stubs (D333 #45, #51). Delvist bænkbevist: Auto Standby (D333 #115), IR-overlays (D333 #56) og SYSTEM ERROR (D333 #392). Skærmene bruges i paritetstestene (D333 #52–#56) |
+| Pickup og AV i level match | [D333] FR-850, FR-861 (§9.42–9.43 i [D333]) | 1:1. Pickup bruger Helios' relæbit og tider (§4.10) | Pickup ved opstart er bænkbevist 2026-11-03 (D333 #421), og ugyldig `pickupSel` → MM er regressionstestet på bænken (D333 #424). AV gråtonet i level match er bænkgodkendt 2026-11-03 (D333 #172). Fejlvejene i #421 er kun host-testet |
+| Persistens: driver, persist-guards og fabriksreset | [D333] FR-1000–1012, `svc_settings`, `drv_eeprom` | Mekanisme. Helios' layout og adresser (§4.11) | Bænkbevist 2026-07-01: layout, blank chip, gemmetidspunkter, 0xFF-fejlstatus og fabriksreset (D333 #55). Rollback ved fejlet fabriksreset er kun host-testet (D333 #403, #411) |
 | UART-testinterface med én ejer af UART1 | [D333] FR-1200, FR-1201, `drv_uart1`, `app_testcmd` | Mekanisme og resultatformater. Linjen er 115200 som i Helios 1.0 (§4.12) | Host-testet (`test_drv_uart_test.c`), bænkbevist 2026-10-23 (D333 #265) |
 | USB-servicestick | [D333] FR-1300–1303, `drv_usbmsd`, `svc_usb`, `app_usbcmd` | Mekanisme. Filnavne og tekster fra Helios 1.0. Boot-tælleren er 16 bit på `0x84–0x85` (§4.14) | Host-testet, bænkbevist 2026-10-23 og 2026-11-03 ([D333] §9.38) |
-| Bootloader-aktivering og persistent RAM | [D333] FR-1100, `app_core`, `drv_sysio`, `check_btl_contract.py` | Mekanisme. Kontrakten er BTL 1.0's (§4.13), og aktiveringen gælder i alle vågne tilstande (§9.59) | FR-1100 er host-testet (`test_app_core.c:315`). Persistent RAM er bænkbevist 2026-10-21. Vagten tjekkes |
-
-"Tjekkes" betyder, at status skal læses i D333's repo eller issues, før genbruget besluttes.
-
+| DDR2-genkalibrering efter start af USB-PHY'en | [D333] `drv_ddr`, `check_ddr_contract.py`, USBH-010 | 1:1. Er nødvendig, fordi framebufferen ligger i DDR, og USB kører i RUNNING (FR-1300) | Bænkbevist: fuld `DDR_Initialize()` efter PHY-start gav 0–5 fejl af 524288 (D333 #249, PR #262) |
+| Bootloader-aktivering og persistent RAM | [D333] FR-1100, `app_core`, `drv_sysio`, `check_btl_contract.py` | Mekanisme. Kontrakten er BTL 1.0's (§4.13), og aktiveringen gælder i alle vågne tilstande (§9.59). Vagten peger på Helios' `BTL/src`. Hvis bootloaderens header mangler, fejler den, for BTL ligger i samme repo. D333's vagt springer over med exit 0 | FR-1100 er host-testet (`test_app_core.c:315`). Persistent RAM er bænkbevist 2026-10-21. Vagten er en ctest i CI og er tjekket negativt mod ændret felttype og magic |
 ---
 
 ## 9. Bevidste afvigelser fra legacy

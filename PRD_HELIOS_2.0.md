@@ -1539,8 +1539,6 @@ FR-1303. `BOOT` læser den.
 
 ## 5. Timing-krav (samlet)
 
-| ID | Parameter | Værdi | Reference |
-|---|---|---|---|
 **Numre:** Under TIM-50 er numrene [D333]'s og bruges kun, hvor parameteren har samme rolle som
 i [D333]. Værdien er Helios' egen. TIM-50 og op er Helios-specifikke og fordelt i blokke pr.
 område: power 50–59, GUI 60–64, IR 65–69, input og volumen 70–74, DAC 75–79 (beslutning
@@ -1641,8 +1639,63 @@ FR-830's 10 koder kan ikke ligge i én byte. Derfor vælger `vv` en side:
 
 ## 7. Test-krav
 
-_Udfyldes. Skabelon: [D333] §7. Bænktests skal automatiseres, hvor det kan lade sig gøre
-(HIL-001…006)._
+Som [D333] §7 og [CONV] §11, med Helios' krav (beslutning 2026-11-27). En host-test erstatter ikke
+et bænkbevis. Intet er set på hardware, før det er markeret **bænkbevist**.
+
+**Numre:** Som TIM i §5. Under TST-50 er numrene [D333]'s og bruges kun ved samme rolle. TST-05
+(fejlfiltrering af effekttrinnets bit) og TST-09 (blæser) udgår, fordi Helios ikke har dem. TST-50 og
+op er Helios-specifikke.
+
+**Host-tests (Unity, med mocks for alle drivere og for tiden, NFR-014):**
+
+| ID | Hvad | Krav |
+|---|---|---|
+| TST-01 | Mute-tilstandsmaskinen: politikker, fuld mute/unmute med tids-mock, transition med hver post-action, generationstælleren (et forældet hold-callback ignoreres), menu-entry og -exit, user-mute på tværs af digitale skift og mute-låsen | FR-310, FR-314, §9.11, §9.13, §9.32 |
+| TST-02 | Volumenindekset pr. kanal: grænserne 0 og 84, start- og maxniveau, repeat, balance i 13 trin, level match og AV-indekset 66 | FR-300–305, FR-320, FR-860, FR-355 |
+| TST-03 | Inputskift: analog ↔ digital og digital ↔ digital (uden analog sekvens), relæbits, −6 dB og `maxInp` ud fra modulerne | FR-200–207, §9.14 |
+| TST-04 | USB-lock-gate: alle fire kombinationer af kabel og lock, statusskift under afspilning og skift mellem USB og S/PDIF | FR-404, FR-405 |
+| TST-06 | EEPROM-service: pack og unpack, defaults ved tom EEPROM, update-semantik, persist-guards og fejl ved mock-NACK | FR-1001, FR-1002, §9.42, §9.43 |
+| TST-07 | UART-parser: alle kommandoer, ugyldige rammer, grænseværdier, `$C`'s bitmaske (§6), vinduet og RX-fejl | FR-1200, §9.45–9.51 |
+| TST-08 | IR: dekoderens `DecodeHalfBits`, kommando → handling, toggle og hold, gating og overlays | FR-700–707, §9.20 |
+| TST-10 | Power-tilstandsmaskinen: trinenes rækkefølge, guards og tider uden ægte delays | FR-100–106 |
+| TST-50 | `app_health`: latch, undertrykkelse, højst 5 koder, kvittering og navigation. Skal også dække `_Static_assert` for `T_bus` | FR-830 |
+| TST-51 | Boot-beslutning efter opvågning fra deep sleep, med noise-guarden på 500 ms | FR-120, §9.6 |
+| TST-52 | 12V-linket: tænd, faldende flanke og blokering efter en manuel sluk | FR-121 |
+| TST-53 | AC-kontrol: majoritet af samples og begge fejlskærme | FR-108, §9.4 |
+| TST-54 | Green bias | FR-410 |
+| TST-55 | DAC-modul: init, filtre, status, Fs-visning, moduldetektion og retry med eskalering til E31 | FR-400–403, FR-406, FR-407, §9.19 |
+| TST-56 | Servicestick: parsing af kommandofilen, kvittering og afviste linjer | FR-1300–1303, §9.55–9.58 |
+| TST-57 | Bootloader-pinnen: debounce, også under opstart | FR-1100, §9.59 |
+| TST-58 | GUI-modeller: `%` i et inputnavn, vælgerknapper ud fra modellen, Auto Standby, display-modes og fade fra tick | §9.28, §9.39, FR-107, FR-811, FR-815, FR-816, FR-880–882 |
+
+**Bænktests.** Hver bænktest automatiseres, hvor det kan lade sig gøre:
+
+- Arduinoen er stimulus (IR, 12V-link, knap og relæ, HIL-001), og én proces ejer portene (HIL-002).
+- UART'en er orakel (HIL-003). En hændelse, der ikke er bestilt, er en fejl.
+- En tabt stimulus gentages og tælles for sig (HIL-004).
+- Tænd- og sluk-tests køres både med og uden USB-UART-adapter, og en livsprøve tages i hver
+  cyklus (HIL-005).
+- Hver runde vurderes på et orakel, der er unikt for netop den stimulus (HIL-006).
+
+| ID | Hvad | Stimulus og orakel | Krav |
+|---|---|---|---|
+| BNK-01 | Tænd og sluk med 1.0's trin og tider | Knap eller IR fra Arduino. `[BOOT]`, `#0:01;` og `#0:00;` | FR-100, FR-105, §5 |
+| BNK-02 | Standby og opvågning: deep sleep, IDLE og 12V-linket | Link og IR fra Arduino. Boot-linjen skal skelne deep sleep fra POR og DMT-reset | FR-120, FR-121, §4.1 |
+| BNK-03 | AC-kontrol: sample-antal og afstand | Manuel | FR-108, §9.4 |
+| BNK-04 | RCON-baseline ved en kendt POR og en kendt MCLR | Relæ eller manuel. Boot-linjen | §4.12 |
+| BNK-05 | Watchdog og reboot-loft | `$W:01;`–`$W:04;`. `[WDT]`-linjen og `$C:01;` (E41, E42) | NFR-013 |
+| BNK-06 | Fejlveje: E13 og E21–E24 | `$N` og `$I`. `$C:00;` og SYSTEM ERROR-skærmen. Hvordan en låst bus fremkaldes, fastlægges i testplanen | FR-830, §6 |
+| BNK-07 | Mute: ventetiden efter niveau 0 og efter relæerne | Måling | §9.11 |
+| BNK-08 | IR-spam under volumenskift | IR fra Arduino. UART | §9.12 |
+| BNK-09 | User-mute holder ved skift til S/PDIF | IR fra Arduino. UART og måling af stilhed | §9.13 |
+| BNK-10 | Phono gendannes uden DAC-modul | Manuel, Helios med kun phono-modul | §9.14 |
+| BNK-11 | IR-tiderne på Helios' modtager | IR fra Arduino med tider på grænsen. IR-hændelseslinjen | §9.20 |
+| BNK-12 | DAC-modulet mod de ægte chips og USB-lock | Audio Precision og UART | FR-400–406 |
+| BNK-13 | Make-before-break uden pop | Lytte- og målingstest | FR-301 |
+| BNK-14 | Servicesticken | Stick-filer. Kvitteringen og en unik UART-linje pr. runde | §4.14 |
+| BNK-15 | DDR2 | `$M:vv;`. Resultatlinjen | §9.50 |
+| BNK-16 | Langtidstest med tilfældige tænd/sluk og standby | Arduino og UART som BNK-01 og BNK-02, med seed i loggen | HIL-003 |
+| BNK-17 | EEPROM-endurance | Som [D333] | FR-1001 |
 
 ---
 

@@ -25,8 +25,10 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    læst**, og alle 10 fund er placeret (§9.52–9.58, §10.6, se log "område 9, læst"). §4.14 er skrevet
    (FR-1300–1303). **Område 9 er gennemgået.** Alle 9 områder er nu gennemgået. **§4.13
    (bootloader-kontrakt) er gennemgået** (kontrakttabel, FR-1100, FR-1101, §9.59–9.61, §10.7, se
-   log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). **§6 er skrevet** (se log "§6").
-   Det næste er §7 (test-krav, ud fra [D333] §7 og HIL-001…006).
+   log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). **§6 og §7 er skrevet** (se log "§6" og "§7").
+   Det næste er §2 (hardware-platform: busser, adresser, GPIO, interrupts) og §3.1 (lagdeling og
+   modulopdeling, ud fra [D333] §3.1). Derefter skal de forældede "_Udfyldes_"-noter i §4, §8 og §10
+   ryddes op.
    - **Åbent fra §4.13:** Hvad er RA5 fysisk (§11.7)? §10.7 bygger på, at kun en tekniker kan nå
      den.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
@@ -55,6 +57,18 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§7)
+
+- **Numre (Michael):** Som TIM i §5. D333's TST-numre bruges kun ved samme rolle, og Helios-specifikke
+  numre ligger fra TST-50. TST-05 (effekttrinnets bit) og TST-09 (blæser) udgår.
+- **Host-tests:** TST-01–04, 06–08 og 10 har D333's roller, og TST-50–58 er Helios-specifikke.
+- **Bænktests:** BNK-01–17 med stimulus og orakel, samlet fra de bænkkrav, der står i PRD'en, plus
+  D333's target-liste. HIL-001…006 er fælles regler.
+- **Skøn, der ikke er besluttet:** Grupperingen af TST-50–58 (fx samler TST-58 fem GUI-emner).
+  BNK-17 (EEPROM-endurance) er ny hos Helios og kommer kun fra D333's liste. BNK-06 siger ikke,
+  hvordan E11/E12 og E23/E24 fremkaldes. Det fastlægges i testplanen.
+- Den tomme tabeloverskrift i §5 (fra `942f914`) er fjernet.
 
 ### 2026-11-27 (§6)
 

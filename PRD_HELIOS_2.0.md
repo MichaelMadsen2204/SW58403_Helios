@@ -1333,7 +1333,63 @@ tabellen (§9.42).
 
 ### 4.12 UART-testinterface
 
-_Område 8._ Skal opfylde HIL-003 (boot-linje med reset-årsag, livsprøve, faste fejlrammer).
+_Område 8 (beslutning 2026-11-27)._ Interfacet er kontrakten med teststativer og skal opfylde
+HIL-003: faste kvitteringer, en livsprøve, hændelseslinjer med fast præfiks og testkommandoer til
+fejlvejene.
+
+**Legacy (kode læst, `uart_control.c`, uændret siden `v1.0`).**
+
+- **Linjen:** UART1 kører 115200 8N1 (BRG 162 med BRGH og PBCLK2 75 MHz, `plib_uart1.c:94-100`).
+  RX polles, og TX venter uden timeout (§9.49).
+- **Parseren** `uartCtrl()` (`:313`) venter 10 ms, læser FIFO'en og udfører én ramme. Den tjekker
+  kun `$`, `:` og `;` (§9.45) og rydder aldrig OERR (§9.46).
+- **Vinduet:** actionScreen og simpleView efter opstart samt `APP_STATE_IDLE` (`app.c:192`, `:214`,
+  `:280`, §9.51).
+- **Afvigelser i 2.0:** §9.44–9.51. Fejlsvarene bevares (§10.5).
+
+**FR-1200 (protokol):**
+
+- **Linjen er 115200 8N1** som Helios 1.0. Teststativer afhænger af den (§1). [D333] kører 230400.
+- **Rammen** er `$<c>:<vv>;`, hvor `<c>` er ét tegn og `<vv>` to decimale cifre (§9.45).
+  Kvitteringen er `#<c>:<vv>;\r\n`.
+- **Vinduet:** Kommandoer udføres på actionScreen, simpleView og hovedmenuen efter opstart og i
+  fejltilstand. Uden for vinduet kasseres bytes uden svar (§9.51).
+- **Fejlsvar** er 1.0's tekster (§10.5).
+- **Kvitteringer og svar** går ikke gennem fritekst-kontakten (§9.44). Al UART-udgang går gennem
+  `drv_uart1` og er bundet (§9.49).
+
+| Kommando | Handling | Svar | Reference |
+|---|---|---|---|
+| `$1:vv;` | Volumen. Over maxLvl ignoreres | `#1:<curLvl>;` | legacy |
+| `$2:vv;` | Input 1–maxInp. 0 og over maxInp ignoreres | `#2:<curInp>;` | §9.47, §9.49 |
+| `$3:vv;` | Mute. `01` er til, alt andet fra | `#3:00;` eller `#3:01;` | legacy |
+| `$5:vv;` | IR-kilde. `00` er front og `01` bag. Over 1 ignoreres | `#5:<faktisk>;` | §9.48 |
+| `$6:00;` | Fabriksreset. Andre værdier kvitteres kun | `#6:vv;` før handlingen | §9.42 |
+| `$8:00;` | Livsprøve med FW og spændingssetting. Andre værdier kvitteres kun | `#8:00;` og `<FW>  -  Voltage Setting = High` eller `Low` | legacy, HIL-003 |
+| `$9:00;` | Serienummer fra EEPROM. Andre værdier kvitteres kun | `#9:00;` og SN-linjen | legacy |
+| `$T`, `$H`, `$t`, `$S:0v;` | SN-cifre. `S` danner SN, skriver det og gemmer | `#c:0v;`, over 9 tavs | legacy, §10.5 |
+| `$B:0v;` | AC-resultatets pin | `#B:00;` eller `#B:01;`, over 9 tavs | legacy, §10.5 |
+| `$C:00;` | Fejlstatus som hex | `#C:xx;` | §9.50 |
+| `$D:00;`, `$D:01;` | Fritekst-kontakten fra eller til | `#D:<faktisk>;` | §9.44 |
+| `$E:00;` | Slet EEPROM til 0xFF | `#E:00;` | §9.50 |
+| `$I:01;`, `$I:02;` | I²C2: bus-clear eller registerdump | `#I:vv;` og en `[I2C2]`-linje | §9.50 |
+| `$M:vv;` | DDR2-memtest af 1 MB-vindue vv | `#M:vv;` og en resultatlinje | §9.50 |
+| `$N:vv;` | NACK-simulering. `00` genopretter | `#N:vv;` | §9.50 |
+| `$W:vv;` | Watchdog: `00` dump, `01`–`03` hæng, `04` hæng i boot-stien | `#W:vv;` | §9.50 |
+
+- Teksten efter `#8:00;` og `#9:00;` er 1.0's (`uart_control.c:421-422`, `:432`).
+- Formatet for resultatlinjerne fra `I`, `M`, `N` og `W` følger [D333].
+
+**FR-1201 (statuslinjer):**
+- `#0:01;` sendes, når tændsekvensen er færdig (`On_Off_Control.c:1093`).
+- `#0:00;` sendes synkront ved sluk, før forsyningen tages (`:1134`, §9.49).
+
+**FR-1202 (boot-linjer, fri tekst gennem kontakten, §9.44):**
+- Først skrives `[BOOT] Helios <firmwareVersion>  build <__DATE__> <__TIME__>`, før noget andet,
+  der kan hænge. `firmwareVersion` er den samme define, som postbuild bruger.
+- Derefter følger `[WDT]`-dumpet med den gemte RCON (se nedenfor) og ved DMTO eller WDTO linjen
+  `[WDT] watchdog-reboot`, som [D333] NFR-013.
+- Formatet på `[WDT]`-linjerne følger [D333].
 
 **Reset-årsag (WDT-005, beslutning 2026-11-27).** Legacy bruger slet ikke RCON (App og
 BTL).

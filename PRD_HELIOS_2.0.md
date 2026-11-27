@@ -317,11 +317,143 @@ Følger for NFR-013:
 
 ### 4.2 Input-styring
 
-_Område 3._
+_Område 3._ [D333]-løsningen er `svc_input`, `svc_mute` og `app_audio_ctrl` (§8). Forskelle
+fra [D333] står i klammer.
+
+**Legacy: inputs (kode læst).**
+
+- **11 inputs:**
+  - 1–5 er analoge line-inputs.
+  - 6 er phono og findes kun med phono-modul.
+  - 7 er USB, og 8–11 er digitale. De findes kun med DAC-modul.
+  - `maxInp` er 5, 6 med phono og 11 med DAC (`screen_Action.c:473-484`).
+  - Uden phono, men med DAC, springes input 6 over ved op/ned (`IR_control.c:189-206`).
+
+  [D333: 10 inputs.]
+- **Relæer på U26, byte 0:** Et analogt input n sætter bit n−1. Alle digitale inputs deler
+  bit 6 (`0x40`). Bit 7 er output-mute og bevares (`MB_IOexp_U26_Control.c:405-433`).
+- **−6 dB-relæet** er til på input 4 og 5 (`:477`). [D333: input 3 og 4.]
+- **Valg:** sker via touch (`screen_Action.c:610-628`), IR (direkte og op/ned,
+  `IR_control.c:143-213`) og UART (`uart_control.c:348`, område 8). Op/ned wrapper ikke.
+  IR-kode 0 vælger input 10, men kun med DAC (`IR_control.c:151-154`).
+- **Validering ved tænding:** Mangler det modul, som det gemte input kræver, vælges input 1
+  (`On_Off_Control.c:1020-1021`, `MB_IOexp_U26_Control.c:504-505`, `:530-531`).
+
+**Legacy: inputskift (kode læst).** `setInput()` (`MB_IOexp_U26_Control.c:456-484`):
+
+1. Er inputtet uændret, sker der intet.
+2. Er det gamle eller det nye input analogt:
+   - `muteOn()` åbner alle input-relæer, og DAC-kanalen mutes, hvis det gamle input var
+     digitalt (`:259-271`).
+   - Derefter venter koden 20 ms (blokerende).
+
+   Ved digital → digital springes dette trin over.
+3. Er det nye input digitalt, kaldes `setDigitalInput()` (område 4).
+4. −6 dB-relæet sættes efter inputtet.
+5. Et mute-vindue starter altid, også ved digital → digital. Det varer 2000 ms, hvis niveauet
+   er over 0 eller inputtet er AV, og ellers 200 ms (`:479-481`).
+
+**Legacy: når mute-vinduet udløber (kode læst).** `InputMute_Service()` kaldes i hvert loop
+(`app.c:173`, `MB_IOexp_U26_Control.c:535-559`):
+
+- Er niveauet over 0 eller inputtet AV, og er der ingen user-mute, så lukkes input-relæet, og
+  AV-niveauet eller `UpdateVolume()` skrives.
+- Ellers forbliver relæerne åbne.
+- Så længe vinduet er åbent, ignoreres volumentrin fra touch og IR
+  (`screen_Action.c:198`, `IR_control.c:169`, `:178`).
+
+**Legacy: AV (kode læst).**
+
+- Input 3 og/eller 4 kan udpeges som AV via masken `avInp` (`ScreenAV_Setup.h:7-16`).
+  [D333: input 2 og/eller 3.]
+- På et AV-input sættes begge kanaler til det faste relæ-indeks 66 (`avLevInp`, `app.h:152`).
+  Balance, level match og digital gain bruges ikke (`Level_Control.c:202-233`).
+  [D333: indeks 38.]
+- Niveauvisningen og volumenknapperne skjules, og IR-volumen ignoreres
+  (`screen_Action.c:808-815`, `:1376-1391`, `IR_control.c:169`, `:178`).
+- Mute virker også på et AV-input (`screen_Action.c:529`).
 
 ### 4.3 Volumen og level match
 
-_Område 3._
+_Område 3._ [D333]-løsningen er `drv_volctl` og `svc_volume` (§8).
+
+**Legacy: attenuator (kode læst).**
+
+- **To I/O-expandere på I2C3:** U16 (`0x22`) styrer venstre kanal og U20 (`0x23`) højre
+  (`Level_Control.c:10-11`).
+  - Et relæ-indeks fra 0 til 84 slås op i tre tabeller med 85 indgange hver
+    (`ui_globals.c:134-150`). Indeks 0 er det laveste niveau.
+  - Tabelværdien skrives til register `0x84` (output 0 med autoincrement).
+
+  [D333: én expander til begge kanaler og indeks 0–44.]
+- **Make-before-break** (`Level_Control.c:125-165`) kører i tre faser. Faserne skiftes mellem
+  L og R, og efter hver skrivning venter koden 2 ms (blokerende):
+  1. Byte 1 = `(ny & 0xFC) | gammel`. Byte 2 og 3 = `ny | gammel`.
+  2. Alle tre bytes = `ny | gammel`.
+  3. Alle tre bytes = `ny`.
+
+  IR-interruptet er slået fra under hele sekvensen. [D333: to faser, 1 ms pr. fase.]
+- **Relæ-indeks pr. kanal** (`Level_Control.c:45-73`), hvor `bal` er `leftBal` eller
+  `rightBal` (`ui_globals.c:131-132`):
+  - **Analogt input:** `curLvl + bal + inpSens[curInp]`, med loft ved 84.
+  - **Digitalt input med digital gain:** `curLvl + 6 + bal`, med loft ved 84.
+  - **Digitalt input uden digital gain:** `curLvl + bal`, uden loft.
+- **Green bias** følger `curLvl` (`MB_IOexp_U26_Control.c:365-389`) og hører til område 4.
+
+**Legacy: niveau og grænser (kode læst).**
+
+- **Niveau:** `curLvl` ligger mellem 0 og `maxLvl`. Ved tænding er `curLvl = startLvl`
+  (`On_Off_Control.c:942`).
+- **Grænser** (`Screen_Volume_Settings.c:57-98`):
+  - Startniveauet ligger mellem 0 og 66, og maxniveauet mellem 20 og 84.
+  - Startniveauet følger maxniveauet ned, og maxniveauet følger startniveauet op.
+  - Ved indlæsning klemmes værdierne ind i grænserne (`eeProm_Functions.c:48-53`).
+  - Defaults er start 0 og max 84 (`:400-401`).
+  - Værdierne gemmes, når skærmen forlades (`Screen_Volume_Settings.c:178-183`).
+
+  [D333: start 0–25, max 10–42.]
+- **Touch:**
+  - Ét trin ved tryk og derefter repeat efter 400 ms, med ét trin hver 120 ms.
+  - Repeat stopper ved 0 eller max, efter 84 gentagelser, eller når touch har været uden
+    opdatering i 250 ms eller er uden for knappen (`screen_Action.c:32-35`, `:197-293`).
+  - Repeat kører i en `SYS_TIME`-callback (§9.1).
+- **IR:** ét trin pr. kode (`IR_control.c:163-184`).
+- **UART:** sætter niveauet, hvis værdien højst er max (`uart_control.c:341-344`, område 8).
+- **Auto-mute ved niveau 0** (`Level_Control.c:75-95`): Er niveauet 0, og er inputtet ikke
+  AV, så kaldes `muteOn()`. User-mute nulstilles, og mute-knappen deaktiveres.
+- **Unmute ved volumentrin:** Vol-op fra 0 eller fra user-mute lukker relæet igen. Vol-ned
+  gør det aldrig (`screen_Action.c:204-217`, `IR_control.c:166-182`,
+  `Level_Control.c:96-123`).
+- **User-mute:**
+  - Touch og IR slår mute til og fra, men kun når niveauet er over 0 eller inputtet er AV
+    (`screen_Action.c:525-544`, `IR_control.c:215-224`, `MB_IOexp_U26_Control.c:304-326`).
+  - Mute åbner input-relæerne. Ved digital → digital bruges DAC-kanal-mute i stedet
+    (`:259-271`).
+  - Output-mute-bitten bruges kun i power-sekvenserne. [D333: niveau til 0, derefter
+    relæ-mute.]
+- **Menu:**
+  - Når menuen åbnes, mutes der (`app.c:107-116`).
+  - Når menuen lukkes, skrives niveauet igen, og der unmutes, hvis niveauet er over 0 eller
+    inputtet er AV, og der ikke er user-mute (`app.c:117-128`).
+
+**Legacy: balance (kode læst).**
+
+- Balance har 13 trin med midten i trin 6 (`Screen_Volume_Settings.c:9-21`, `:109-126`).
+- Balance hæver den ene kanal med op til 6 relæ-trin. Den dæmper ikke den anden kanal
+  (`ui_globals.c:131-132`).
+- Balance gemmes sammen med start- og maxniveauet (`eeProm_Functions.c:316-317`).
+
+[D333 har ingen balance (FR-300).]
+
+**Legacy: level match (kode læst).**
+
+- Hvert analogt input fra 1 til 6 har en offset på 0–8 relæ-trin, som vises som "+N dB"
+  (`Screen_Input_Level_Match.c:171-182`, `:205`). Input 6 vises kun med phono-modul.
+- Offsetten gemmes, når skærmen forlades (`:242-246`).
+- Den lægges kun på analoge inputs, der ikke er AV (`Level_Control.c:67`, `:202-233`).
+- Menuen er muted, så en ændring kan først høres, når menuen lukkes.
+
+[D333: offset = `inpSens/2` i trin på 2 dB.]
 
 ### 4.6 DAC-modul og U26
 
@@ -373,6 +505,11 @@ _Område 9._
 | TIM-xx | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
 | TIM-xx | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
 | TIM-xx | AC-mismatch: LED skifter / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
+| TIM-xx | Inputskift: mute-hold kort / langt (D333 TIM-08: 200 / 2000 ms) | 200 / 2000 ms | `MB_IOexp_U26_Control.c:479` |
+| TIM-xx | Inputskift: venten efter analog mute | 20 ms (blokerende) | `MB_IOexp_U26_Control.c:464` |
+| TIM-xx | Make-before-break: venten pr. skrivning (D333 TIM-09: 1 ms pr. fase) | 2 ms × 6 skrivninger | `Level_Control.c:133-164` |
+| TIM-xx | Volumen-repeat: første / gentagelse (D333 TIM-15: 400 / 120 ms) | 400 / 120 ms | `screen_Action.c:32-33` |
+| TIM-xx | Volumen-repeat: stop uden touch-opdatering / maks. antal gentagelser | 250 ms / 84 | `screen_Action.c:34-35` |
 
 _Udvides under hvert område. Numre tildeles, når listen er komplet._
 
@@ -402,6 +539,9 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | Auto Standby | [D333] FR-107, FR-815, FR-816 (`app_standby.c`) | 1:1 (#1) | _tjekkes_ |
 | Power-sekvenser som tick-baseret state machine | [D333] `svc_power.c` | Mekanisme; trin og tider fra Helios (§4.1) | _tjekkes_ |
 | Standby i deep sleep/IDLE med opvågning via INT0/CN | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] | — |
+| Volumen-attenuator med make-before-break | [D333] FR-300–306, `drv_volctl`, `svc_volume` | Mekanisme. Helios har to expandere (L/R), indeks 0–84, tre MBB-faser og balance (§4.3) | Bænkbevist (D333 #54, M9-paritet med Audio Precision) |
+| Ikke-blokerende mute og inputskift med hold på 200/2000 ms | [D333] FR-202, FR-310–316, `svc_mute`, `svc_input`, `app_audio_ctrl` | Mekanisme. Helios' inputs, relæbits og −6 dB-inputs (§4.2) | Bænkbevist (D333 #54, #170, #174, #175) |
+| AV-bypass og level match i volumenkonteksten | [D333] FR-302, FR-355, `SvcVolume_SetContext` | Mekanisme. Helios' AV-inputs 3/4 og indeks 66 | Bænkbevist (D333 #169) |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._
@@ -486,6 +626,10 @@ _Udfyldes under område 2–9._
 1. **Mappenavn** for 2.0 ved siden af `App/` (#1).
 2. **Bit-identitet:** Er `v1.0` bit-identisk med det image, der er i marken? (#1)
 3. **Kendte fejl og klager fra marken** er ikke samlet (#1). De er gode testcases.
+4. **dB pr. relæ-trin på Helios** (område 3). Level match vises som "+N dB" pr. trin, og
+   digital gain lægger 6 trin til. Det tyder på 1 dB pr. trin ([D333]: 2 dB), men det står
+   ikke i koden. Tabellernes mapping fra bit til relæ og dB er heller ikke dokumenteret
+   ([D333] har samme åbne punkt).
 
 ---
 

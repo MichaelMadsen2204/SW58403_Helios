@@ -1771,6 +1771,24 @@ adfærd, er markeret **(adfærd)**.
       bitmaske uden validering (`app_settings.c:36`, `:73`).
     - **Synlig adfærd:** Kun ved en korrupt byte. Så starter den indstilling på sin default i
       stedet for en udefineret værdi.
+42. **(adfærd) Én vej til defaults, og fabriksreset genindlæser alt** (beslutning 2026-11-27,
+    §4.11), som [D333] FR-1010 og FR-1011.
+    - **Legacy (kode læst):**
+      - Der er to næsten ens funktioner. `writeEEpromDefaultIfEmty` (første boot) sætter pickup
+        til 0. `writeEEpromDefault` (restore) bevarer pickup (`eeProm_Functions.c:438-483`).
+        Ingen af dem sætter `dsdFilter` eller `curInp` i RAM.
+      - **Menu:** Restore er to-trins. Navne og værdier genindlæses først, når der trykkes tilbage
+        (`Screen_Restore_Settings.c:28-50`). `setInput()` kaldes ikke, så `curInp = 1` i RAM kan
+        afvige fra relæerne (udledt, menu-exit er ikke tjekket).
+      - **UART:** `CMD_FACTORY_RESET` skriver defaults og vælger input 1, men genindlæser hverken
+        navne eller værdier (`uart_control.c:407-414`). De gamle navne vises indtil næste tænding.
+    - **2.0:** Én defaults-funktion med Helios 1.0's værdier (§4.11), med pickup som eneste
+      forskel: første boot giver MM (§9.37), og restore bevarer valget (§10.4). Menu og UART skriver
+      defaults, genindlæser alt, nulstiller lydtilstanden (mute-tilstandsmaskinen og relæerne) og
+      går til input 1, som [D333] FR-1011. Menuens to-trins forløb og retur til hovedmenuen er
+      som legacy.
+    - **Synlig adfærd:** Efter en UART-reset vises default-navnene straks. Efter en restore fra
+      menuen spiller input 1.
 
 ---
 

@@ -80,6 +80,7 @@ Persistens er læst i `eeProm_Functions.c` (uændret siden `v1.0`) og [D333] PRD
      som en bitmaske. **Placeret: §9.41** (en ugyldig værdi giver default i RAM).
   3. De to default-veje er forskellige. UART-fabriksreset (`uart_control.c:411`) genindlæser
      hverken navne eller værdier, og ingen af vejene sætter `dsdFilter` eller `curInp` i RAM.
+     **Placeret: §9.42** (én vej som [D333] FR-1010/1011).
   4. Skrivefejl ignoreres, og der er ingen persist-guard og ingen read-compare-write ([D333]
      FR-1001, FR-1002).
   5. Blokerende `while (I2C2_IsBusy());` uden timeout (`:99`, `:115`, `:125`).

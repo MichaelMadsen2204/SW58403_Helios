@@ -15,11 +15,15 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1):** Rammebeslutningerne er truffet og står i issuet. Næste skridt er at
-   gennemgå 1.0's adfærd modul for modul og derefter skrive PRD'en med D333 som skabelon.
-   Start i en ny session.
-   Brug kommentaren på #1 med BTL 1.0's bindinger på App 2.0 og kravene fra de fælles
-   erfaringer, og #3 med de kendte fejl i 1.0.
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** `PRD_HELIOS_2.0.md` har D333's skelet, og
+   område 1 (eksekveringsmodellen) er gennemgået. Næste skridt er **område 2, power**
+   (`On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c`) til §4.1 og §2.
+   Tabellen i PRD'ens §4 viser rækkefølgen og status for område 1–9. Ét område giver én
+   commit. Hver legacy-adfærd mærkes `kode læst fil:linje`, og det, der ligner en fejl, skal
+   Michael placere i §9 (rettes) eller §10 (bevares). Afklar under område 2, om MCU'en går i
+   deep sleep i standby (`POWER_DS_WakeupSourceGet`) eller mister forsyningen som på D333.
+   Brug kommentaren på #1 (BTL 1.0's bindinger og kravene fra de fælles erfaringer) og #3
+   (kendte fejl i 1.0).
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 3. **Rettelser til fælles erfaringer, venter på Michaels ja:**
    - SVC-009 siger, at Helios kan resette under afspilning. Det sker ikke, for USB behandles
@@ -27,6 +31,20 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    - GUI-002 er for snæver. Composer kan også inkludere eksplicitte glyf-intervaller.
 
 ## Log
+
+### 2026-11-27
+- PRD for 2.0 er startet på branch `docs/prd-2.0` (`PRD_HELIOS_2.0.md`). Skelettet følger
+  D333, og kravnumrene genbruger D333's numre, hvor områderne svarer til hinanden.
+- Område 1 (eksekveringsmodel) er kode læst. Det nye fund i forhold til #3 er, at der
+  udføres arbejde i interrupt-kontekst:
+  - INT0 kører `wakeUp()` med IR-poll i op til 500 ms og 20 ms delays.
+  - `SYS_TIME`-callbacks kalder Legato og backlight.
+  - Bootloader-CN skriver `appData.state` fra ISR.
+
+  Guarden i `app.c:187` er død kode. Det hele står i PRD §3.2 og §9.
+- Beslutning: UART-testinterfacet er altid aktivt i 2.0, i alle tilstande (PRD §9.3).
+- Ventende: claude-setup er 8 commits bagud og har ucommittede ændringer i `PLAN.md` og
+  `README.md` på denne maskine. Ny erfaring efter vandmærket: WDT-005 (MX-specifik).
 
 ### 2026-11-26
 - De fælles erfaringer er gennemgået mod 1.0 (kode læst, intet set på hardware). Vandmærket

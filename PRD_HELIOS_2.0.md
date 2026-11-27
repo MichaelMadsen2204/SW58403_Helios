@@ -1789,6 +1789,21 @@ adfærd, er markeret **(adfærd)**.
       som legacy.
     - **Synlig adfærd:** Efter en UART-reset vises default-navnene straks. Efter en restore fra
       menuen spiller input 1.
+43. **EEPROM-driveren er [D333]'s** (beslutning 2026-11-27, §4.11), med `drv_eeprom` og
+    `svc_settings` efter [D333] FR-1001 og FR-1002.
+    - **Legacy (kode læst, `eeProm_Functions.c`):**
+      - Alle skrivninger er `(void)`, så en fejl ignoreres. En læsefejl beholder værdien i RAM,
+        og ved opstart er den nul.
+      - Der er ingen read-compare-write, så sluk skriver input og fire digital-bytes hver gang
+        (`On_Off_Control.c:1106-1107`).
+      - `while (I2C2_IsBusy());` venter uden timeout (`:99`, `:115`, `:125`). ACK-poll kan tage
+        op til 15 ms pr. byte (`:142`), og ventetiden blokerer superloopen.
+    - **2.0:**
+      - Page- og bloksplit, update-semantik, ACK-poll med korrekt word-adresse, retries og
+        statuskoder (FR-1001).
+      - Der skrives aldrig før første vellykkede load, og aldrig under opstart (FR-1002).
+      - Timeouts følger NFR-012, og ventetiden følger NFR-011.
+    - **Synlig adfærd:** Ingen tilsigtet. En hængt bus låser ikke længere apparatet.
 
 ---
 

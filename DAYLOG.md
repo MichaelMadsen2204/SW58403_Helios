@@ -84,6 +84,7 @@ Persistens er læst i `eeProm_Functions.c` (uændret siden `v1.0`) og [D333] PRD
   4. Skrivefejl ignoreres, og der er ingen persist-guard og ingen read-compare-write ([D333]
      FR-1001, FR-1002).
   5. Blokerende `while (I2C2_IsBusy());` uden timeout (`:99`, `:115`, `:125`).
+     **Fund 4 og 5 placeret: §9.43** ([D333]'s driver).
   6. Fejlstatus på 0x51 er død. Skal FR-830 gemme noget, som [D333] gør på 0x100?
   7. Adresse til Auto Standby. Ledigt: 0x0D–0x0F (1.0's restore skriver 0), 0x78–0x7F og
      0x87–0xFF (aldrig skrevet).

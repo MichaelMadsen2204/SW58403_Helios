@@ -15,11 +15,19 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–3 er gennemgået. Næste skridt er
-   **område 4: DAC og U26** (`Dac_Control.c`, `MB_IOexp_U26_Control.c`,
-   `Screen_Digital_Setup.c`) til §4.6. FR-203 (DAC-sekvens ved digitalt skift), green bias og
-   fejl-triggere (FR-106) venter på område 4. Tabellen i PRD'ens §4 viser rækkefølgen og
-   status. Arbejdsgang:
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–3 er gennemgået. I område 4 er
+   legacy og afvigelser færdige (§4.6, §9.13–9.18, §10.2–10.3). Næste skridt er **krav til
+   2.0 i §4.6**:
+   - FR-203 (DAC-sekvens ved digitalt skift).
+   - DAC-krav efter [D333] FR-400–406 med Helios' parametre: init, PCM-filter, DSD-lavpas,
+     digital gain +6, lock-gate, USB-tilslutning og Fs-visning.
+   - Green bias.
+   - FR-106: ingen fejl-triggere fra legacy.
+   - TIM-rækker i §5 og §8-rækker med D333's bænkstatus (#53).
+
+   Derefter sættes område 4 til "Gennemgået" i tabellen i §4, og vi går videre til område 5
+   (IR). §11.6 har tre hardwarespørgsmål til Michael (U26 bit 1.2, autoincrement på
+   DAC-modulets expander, polariteten på green bias). Arbejdsgang:
    - Hver legacy-adfærd mærkes `kode læst fil:linje`.
    - Det, der ligner en fejl, placerer Michael i §9 (rettes) eller §10 (bevares), én ad gangen.
    - Brug kommentaren på #1 (BTL 1.0's bindinger og kravene fra de fælles erfaringer) og #3
@@ -35,6 +43,25 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    - GUI-002 er for snæver. Composer kan også inkludere eksplicitte glyf-intervaller.
 
 ## Log
+
+### 2026-11-27 (område 4)
+- Område 4 (DAC-modul, U26, digital setup og green bias): legacy er beskrevet i §4.6 (kode
+  læst).
+- §3.2 er rettet: amp-status polles også via `checkStatus()` i seks skærmtilstande.
+- **D333-genbrug:** Det er samme DAC-modul med de samme adresser. `drv_es9039`,
+  `drv_ak4118`, `drv_u26` og `svc_dac` er bænkbevist med Audio Precision (D333 #53).
+- **Beslutninger:**
+  - User-mute holder på tværs af digitale skift. Der unmutes kun i `svc_mute` med lock-gate
+    på USB og uden mute-blip (§9.13).
+  - Phono gendannes også uden DAC-modul (§9.14).
+  - Fs opsamles i `svc_dac`, uafhængigt af skærmen (§9.15).
+  - Fs-opslag tjekkes mod tabellens længde (§9.16).
+  - Død kode droppes, og EEPROM 0x08 reserveres (§9.17).
+  - Green bias på AV bruger 66 (§9.18).
+  - Filtret går rundt på IR og stopper på touch (§10.2).
+  - Green bias følger `curLvl` (§10.3).
+- **Åbent:** expander-navne (§11.5) og hardwarespørgsmål (§11.6). Digital gain støtter 1 dB pr.
+  trin (§11.4). FR-320 bruges ikke i D333.
 
 ### 2026-11-27 (område 3)
 - Område 3 (input, volumen, level match, balance og AV) er gennemgået i PRD §4.2, §4.3, §3.3,

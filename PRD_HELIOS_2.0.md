@@ -99,7 +99,34 @@ bekræftet det.
 
 ### 3.1 Lagdeling (jf. [CONV] §1)
 
-_Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] §3.1._
+**Kilde (beslutning 2026-11-27):** Modulerne i [D333] `SW_U3_REBUILD/firmware/src` på
+`origin/main` (`fe1787d`, læst 2026-11-27). [D333]'s egen §3.1-tabel bruges ikke, for den er bagud
+for koden. Modulopdelingen er vejledende. Forskelle fra [D333] står i klammer.
+
+| Lag | Indhold i Helios 2.0 (vejledende modulopdeling) |
+|---|---|
+| **GUI** | Én fil pr. skærm (`gui_<skærm>.c`, skærmkataloget i §4.10) og `gui_bridge.c`. Laget læser tilstand fra Application Layer og kalder aldrig services eller drivere. `touch_bridge.c` er appens `SYS_INP`-lytter (NFR-015) |
+| **Application** | `app_core` (runtime-flow, AC-check, watchdog, bootloader-aktivering FR-1100), `app_audio_ctrl` (policy for mute, volumen og input, lock-gate), `app_error` (fejlfiltrering og shutdown-policy), `app_health` (SYSTEM ERROR, FR-830), `app_display` (backlight-politik), `app_standby` (Auto Standby, FR-815, FR-816), `app_settings` (indstillinger fra GUI'en), `app_ir` og `app_commands` (IR-dispatch og kommando-mapping), `app_testcmd` og `app_uartcmd` (UART-testinterface, §4.12), `app_usbcmd` (USB-servicestick, §4.14) |
+| **Configuration** | `cfg_product` (Helios' konstanter, tabeller og FW-streng) [ingen produktvarianter som D333/G40], `cfg_settings` (RAM-kopi af brugerindstillingerne) |
+| **Service** | `svc_power` (on/off-sekvenser), `svc_volume` (relæ-volumen med make-before-break), `svc_input`, `svc_mute`, `svc_dac` (DAC-modulet), `svc_iostatus` [D333 `svc_ampstatus` uden effekttrinnets fejlbit FR-500/501: poll af `drv_mbexp` på `IO_EXP_INT`, hjerteslag (E13) samt DAC-status og modul-detektion via `drv_dacexp`], `svc_system` (AC-variant), `svc_backlight`, `svc_settings` (EEPROM-layout), `svc_usb` [også VBUS-overvågning, FR-1304] |
+| **Hardware** | `drv_i2c2`, `drv_i2c3`, `drv_mbexp` [mainboardets PCAL6524 på 0x23, U26 i Helios' diagram; rollen hedder `drv_u21` i D333], `drv_dacexp` [DAC-modulets PCAL6524 på 0x20; `drv_u26` i D333], `drv_es9039`, `drv_ak4118`, `drv_volctl` [to expandere, U16 og U20], `drv_eeprom`, `drv_ir_rc5`, `drv_backlight`, `drv_uart1`, `drv_uart_test`, `drv_dbglog`, `drv_usbmsd`, `drv_ddr` (DDR2-genkalibrering efter start af USB-PHY'en, USBH-010), `drv_ddr_memtest` (§9.50), `drv_btlversion`, `drv_sysio` (system-GPIO'er og reset-årsag), `drv_time` (`NowMs()`, NFR-014), [ny: `drv_adc` til `USB_VBUS_ANA` RE4, FR-1304] |
+
+- **Udgår** [Helios har dem ikke]: `app_fan`, `svc_fan` og `drv_u13` (blæser), effekttrinnets fejlbit
+  i `svc_ampstatus` og `drv_u21` (erstattes af `drv_mbexp`).
+- **Navne (§11.5, beslutning 2026-11-27):** Expanderdriverne hedder efter funktion, så navnene ikke
+  kan forveksles på tværs af produkter. Hver fil nævner komponentnummeret i diagrammet i sin
+  kommentar.
+
+- **NFR-001:** Lagreglerne i [CONV] §1 SKAL overholdes. Harmony-typer bruges ikke over Hardware
+  Layer, og Legato kaldes ikke uden for GUI Layer.
+- **NFR-002:** Services kender ikke hinanden. Al sekvensering på tværs (fx mute → skift → unmute)
+  ligger i Application Layer (`app_audio_ctrl`), som [D333] NFR-002.
+- **NFR-003:** Hver I²C-bus har præcis én skriver-kontekst. På I2C2 og I2C3 er det main-loopet. ISR'er
+  rører aldrig I²C. [I2C1 ejes af Harmonys touch-driver og bruges ikke af appen.]
+- **NFR-004:** "Latest wins": En ny request om input eller volumen erstatter en ventende. Der bygges
+  ikke en kø af forældede requests op.
+- **NFR-005:** Failsafe: Kan en audio-sekvens ikke fuldføres (I²C-fejl eller timeout), SKAL systemet
+  ende muted og rapportere fejlen opad. Det må aldrig ende unmuted i en udefineret tilstand.
 
 ### 3.2 Eksekveringsmodel
 
@@ -655,8 +682,8 @@ _Område 4._ [D333]-løsningen er `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_da
 Forskelle fra [D333] står i klammer.
 
 **Navne.** I Helios-koden er U26 mainboardets expander på 0x23. I [D333] hedder den
-tilsvarende expander U21, og `drv_u26` er DAC-modulets expander på 0x20. 2.0 skal bruge ét
-entydigt navn for hver (§11.5).
+tilsvarende expander U21, og `drv_u26` er DAC-modulets expander på 0x20. I 2.0 hedder driverne
+`drv_mbexp` (mainboard) og `drv_dacexp` (DAC-modul) (§3.1, §11.5).
 
 **Legacy: hardware (kode læst).**
 
@@ -2594,8 +2621,9 @@ adfærd, er markeret **(adfærd)**.
    ([D333] har samme åbne punkt).
    - _Område 4:_ Digital gain er +6 trin på Helios og +3 trin ved 2 dB pr. trin på [D333].
      Begge giver 6 dB, og det støtter 1 dB pr. trin.
-5. **Expander-navne** (område 4). U26 betyder mainboardets expander i Helios og DAC-modulets
-   expander i [D333] (§4.6). Navnene i 2.0 vælges, før driverne skrives.
+5. ~~**Expander-navne** (område 4).~~ **Afgjort 2026-11-27:** Navnene følger funktionen.
+   `drv_mbexp` er mainboardets expander (0x23, U26 i Helios), og `drv_dacexp` er DAC-modulets
+   (0x20, `drv_u26` i [D333]) (§3.1, §4.6).
 6. **Hardware-spørgsmål til DAC-modulet og U26** (område 4). Besvaret af Michael 2026-11-27,
    undtagen det sidste punkt:
    - ~~U26 byte 1 bit 2.~~ **Afgjort:** U26 er en PCAL6524. P1_1 er `DAC_REGI` (DAC-modul

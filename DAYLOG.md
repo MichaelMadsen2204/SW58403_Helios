@@ -28,7 +28,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). **§6 og §7 er skrevet** (se log "§6" og "§7").
    **§2 er skrevet** ud fra MCC-tilstanden (se log "§2"). To spørgsmål til diagrammet står åbne:
    hvem driver `IO_EXP_INT` (RC2), og hvad er `SN_CHANGE`, `WAKE_UP` og `BSP_MAXTOUCH_CHG`.
-   Det næste er §3.1 (lagdeling og modulopdeling, ud fra [D333] §3.1). De forældede "_Udfyldes_"-noter i §4, §8 og §10 er ryddet
+   **§3.1 er skrevet** ud fra D333's kode, og §11.5 er afgjort (se log "§3.1"). Det næste er de
+   fire "Tjekkes"-rækker i §8. Find også ud af, om `drv_ddr` (USBH-010) skal have en række dér. De forældede "_Udfyldes_"-noter i §4, §8 og §10 er ryddet
    op, og §8 har fået rækker for område 6–9 og §4.13 (se log "§8"). Fire rækker står som "Tjekkes".
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
@@ -55,6 +56,17 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§3.1)
+
+- §3.1 er bygget på modulerne i D333's `SW_U3_REBUILD/firmware/src` på `origin/main` (`fe1787d`).
+  D333's egen §3.1-tabel er bagud for koden (beslutning). Der er tilføjet NFR-001–005.
+- **§11.5 afgjort:** `drv_mbexp` (0x23, U26) og `drv_dacexp` (0x20, D333's `drv_u26`).
+- D333's `svc_ampstatus` bliver til `svc_iostatus` uden effekttrinnets fejlbit. INT-poll, hjerteslaget
+  (E13) og DAC-status bevares (beslutning).
+- `app_fan`, `svc_fan`, `drv_u13` og `drv_u21` udgår. `drv_adc` til RE4 er nyt (FR-1304).
+- **Fund:** USB kører i RUNNING i 2.0 (FR-1300), mens framebufferen ligger i DDR. Derfor er
+  `drv_ddr` (USBH-010) med. PRD'en havde ikke nævnt USBH-010 før.
 
 ### 2026-11-27 (§2)
 

@@ -1931,6 +1931,43 @@ adfærd, er markeret **(adfærd)**.
       - En værdi over 1 ændrer intet, og kvitteringen viser den faktiske indstilling, som i §9.47.
     - **Synlig adfærd:** Valget overlever sluk, og menuen viser det. `$5:07;` svarer med den
       aktuelle indstilling.
+49. **(implementering) UART1 har én ejer og blokerer ikke** (beslutning 2026-11-27, §4.12), som
+    [D333] §9.35.
+    - **Legacy (kode læst):**
+      - `printf` venter på UTXBF uden timeout (`plib_uart1.c:225`), så en død TX hænger
+        superloopen.
+      - Parseren venter 10 ms blokerende og læser så alt i FIFO'en (`uart_control.c:320-327`).
+        Står der flere rammer, udføres kun den første. En ramme, der deles af de 10 ms, går tabt.
+      - `$2` venter 50 ms med mute (`:353-357`).
+    - **2.0:**
+      - `drv_uart1` er eneste ejer af UART1. Både kvitteringer og fri tekst går gennem dens
+        bundne putc. En byte venter højst 2 ms på TX-plads og opgives derefter, og det tælles.
+      - Rammer samles byte for byte i hvert tick uden ventetid, så hver ramme i FIFO'en udføres.
+      - `$2` går gennem input-vejen med mute-tilstandsmaskinen (§4.2) og uden blokerende
+        ventetid.
+      - `#0:00;` sendes stadig synkront før forsyningen tages (FR-1201).
+    - **Synlig adfærd:** Med levende TX er der ingen. Flere rammer i træk udføres alle. Med død TX
+      tabes bytes i stedet for, at apparatet hænger.
+50. **(nye kommandoer) Testkommandoer til fejlveje** (beslutning 2026-11-27, §4.12), som [D333]
+    FR-1200. HIL-003 kræver dem. 1.0 har ingen af dem.
+    - **`$C:00;`** svarer `#C:xx;` med fejlstatus som hex (FR-830).
+    - **`$E:00;`** sletter hele EEPROM'en til 0xFF, så første boot kan testes ([D333] §9.15). Der
+      kræves en power-cycle bagefter.
+    - **`$W:vv;`** er watchdog-diagnostik ([D333] §9.33):
+      - `00` dumper registrene,
+      - `01` og `02` hænger bevidst med og uden interrupts,
+      - `03` er en tom løkke uden interrupts med DMTCNT som t0,
+      - `04` armerer et hæng i boot-stien.
+    - **`$I:01;`** laver 9-clock bus-clear af I²C2 og skriver udfaldet som `[I2C2]`-linje.
+      **`$I:02;`** dumper modulets registre uden bus-clear ([D333] §9.37).
+    - **`$N:vv;`** simulerer en fraværende enhed med en ægte NACK, og `$N:00;` genopretter
+      ([D333] §9.34). Hvilke enheder der kan simuleres, fastlægges ud fra Helios' I²C-enheder
+      (§4.6). [D333]'s `N:02` gælder dens egen DAC-chip.
+    - **`$M:vv;`** tester DDR2 i 1 MB-vindue nr. vv ([D333] §9.44, #250). Samme MCU og samme DDR2
+      som [D333], hvor testen fandt fejlramte ord.
+    - Alle kvitterer `#c:vv;`. Linjerne fra `W`, `I` og `N` er fri tekst gennem kontakten (§9.44).
+    - **Synlig adfærd:** Kun for den, der sender kommandoerne. `W` og `E` er destruktive og er
+      bænkværktøjer.
 
 ---
 
@@ -1960,6 +1997,16 @@ _Udfyldes under område 2–9._
    - Valget følger den monterede pickup og ikke en brugerpræference. Restore udløser derfor
      hverken et relæskift eller 25 s stabilisering.
    - Kun en tom eller ugyldig byte giver default, og det er MM i 2.0 (§9.37).
+5. **UART-fejlsvarene er 1.0's** (beslutning 2026-11-27, §4.12).
+   - Fejl svares med fri tekst (`uart_control.c:334`, `:477`, `:483`):
+     - `uart read error` ved en ugyldig ramme,
+     - `uart parse error` ved en ugyldig værdi, og i 2.0 også ved ikke-cifre (§9.45),
+     - `uart unknown command '<c>'` ved en ukendt kommando.
+   - En værdi over 9 på `T`, `H`, `t`, `S` og `B` giver hverken kvittering eller fejl
+     (`:437-473`).
+   - Svarene er en del af kontrakten med teststativer til 1.0, og de går ikke gennem
+     fritekst-kontakten (§9.44). [D333] bevarer `uart read error` og tier ved en ukendt
+     kommando.
 
 ---
 

@@ -97,10 +97,12 @@ UART-testinterfacet er læst i `uart_control.c` (uændret siden `v1.0`), `app.c`
      følger §9.23).
   5. `$5` opdaterer hverken appData eller EEPROM og kvitterer ugyldige værdier. **Placeret:
      §9.48** (via settings som [D333], 0 = front på linjen, og over 1 ignoreres).
-  6. Værdier over 9 afvises tavst, og fejlteksterne er fri tekst.
+  6. Værdier over 9 afvises tavst, og fejlteksterne er fri tekst. **Placeret: §10.5** (1.0's
+     svar bevares).
   7. TX blokerer uden timeout, og der er 10 ms og 50 ms blokerende ventetid. [D333] §9.35 binder
-     TX pr. byte.
+     TX pr. byte. **Placeret: §9.49** (som [D333]).
   8. Hvilke af [D333]'s ekstra kommandoer skal Helios have (`C`, `D`, `E`, `I`, `N`, `W`)?
+     **Placeret: §9.50** (alle fire grupper og `M`. `D` er §9.44).
   9. Hvor er interfacet aktivt? [D333] lytter også i fejltilstand.
   10. Baudraten: Helios har 115200. Teststativer afhænger af den, så den bevares som parameter.
 

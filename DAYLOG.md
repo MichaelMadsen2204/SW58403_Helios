@@ -17,24 +17,25 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. I område 6 (GUI) er
    de 8 fund placeret, legacy-afsnittet i §4.10 er skrevet, og kravene til skærmkatalog og skift
-   (FR-800–812, FR-880–882) er skrevet (2026-11-27, se log). Resten af kravene i §4.10 mangler.
+   (FR-800–812, FR-880–882) er skrevet, og det samme er SYSTEM ERROR (FR-830) (2026-11-27, se
+   log). Resten af kravene i §4.10 mangler.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
    - **Nyt i D333 siden 2026-10-28, som Helios skal tage stilling til** (ét ad gangen):
-     §9.40 mute-lås ved død volumen-expander (#366, område 3), FR-861/§9.42 AV gråtonet i
-     level match (område 6), FR-850/§9.43 MM/MC og ugyldig `pickupSel` (område 6/7), §9.38
-     gammel ACK fjernes før kommandofilen (#417, §4.14) og E31 ved et eskaleret DAC-valg
-     (§9.19, område 6).
-   - **Område 6:** Skriv resten af kravene til 2.0 i §4.10: SYSTEM ERROR-skærmens kodetabel, Auto Standby
+     FR-861/§9.42 AV gråtonet i level match (område 6), FR-850/§9.43 MM/MC og ugyldig
+     `pickupSel` (område 6/7) og §9.38 gammel ACK fjernes før kommandofilen (#417, §4.14).
+     §9.40 og E31 er afgjort med FR-830.
+   - **Område 6:** Skriv resten af kravene til 2.0 i §4.10: Auto Standby
      (FR-815, FR-816), Pickup og AV (sammen med [D333] FR-850 og FR-861) og GUI-001 i §3.3
      (undersøg Helios' vælgerskærme).
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
      UART-hændelseslinjen for IR fastlægges i område 8. Tolkningen af en ugyldig
      EEPROM-værdi for IR-kilden afgøres i område 7.
-   - **Åbent fra område 4:** §11.6 har tre hardwarespørgsmål til Michael (U26 bit 1.2,
-     autoincrement på DAC-modulets expander, polariteten på green bias). FR-403 og FR-406
+   - **Åbent fra område 4 og 6:** §11.6 har fem hardwarespørgsmål til Michael (U26 bit 1.2,
+     autoincrement på DAC-modulets expander, polariteten på green bias, udgangsniveauet ved
+     høj-Z på U16/U20 og om standby er en POR af expanderne). FR-403 og FR-406
      afhænger af autoincrement. Poll-intervallet for DAC-status i FR-403 er ikke fastlagt.
 
    Arbejdsgang:
@@ -49,6 +50,18 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 6, SYSTEM ERROR)
+
+FR-830 er skrevet i §4.10, og §9.32 og §9.33 er tilføjet (Michael):
+
+- Kodetabellen følger [D333] FR-530 og er tilpasset Helios' busser. I2C2 har U26, EEPROM og
+  DAC-modulet. I2C3 har U16/U20.
+- E21/E22 er U16/U20 døde, og E23/E24 er SDA/SCL på I2C3. Det er nyt i forhold til D333.
+- E21–E24 låser output-mute på U26 som D333 §9.40 (§9.32). Det virker også ved en låst I2C3.
+- E13 bygger på et hjerteslag på U26 byte 1 (`T_E13` = 5 s).
+- E31 vises som i D333 (§9.19). Hængelås-ikonet er ikke afgjort.
+- To nye hardwarespørgsmål i §11.6: udgangsniveauet ved høj-Z på U16/U20, og om standby er en POR.
 
 ### 2026-11-27 (område 6, krav til skærme)
 

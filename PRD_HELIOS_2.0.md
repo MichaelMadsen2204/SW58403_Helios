@@ -1054,7 +1054,7 @@ _Område 6._ Auto Standby-overlay og menupunkt (FR-815, FR-816).
   en forforstærker uden fejlbit fra et effekttrin, så [D333] FR-515 gælder ikke. I stedet
   genbruges skærmen til [D333] FR-530 (SYSTEM ERROR med fejlkoder, `app_health` +
   `gui_system_error`, §9.41 i [D333] på `origin/main`), fx til I²C-busfejl. Kodetabellen til
-  Helios (tre I²C-busser, U26, L/R-expandere, DAC-modul) fastlægges i område 6.
+  Helios står i FR-830.
 
 **Legacy-adfærd uden krav endnu (kode læst).** Kravene skrives sammen med [D333] FR-850/§9.43
 (MM/MC og ugyldig `pickupSel`) og FR-861/§9.42 (AV gråtonet i level match):
@@ -1138,6 +1138,41 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
   2.0 kører fade'en fra tick og blokerer ikke (§9.31).
 - **FR-882 (menu):** Når menuen åbnes, stoppes display-timerne, og baglyset sættes til 100 %.
   Mute og genskrivning af niveauet følger FR-314. Når menuen forlades, vises action.
+- **FR-830 (SYSTEM ERROR, beslutning 2026-11-27):** Følger [D333] FR-530 med samme tekst, niveauer,
+  kvittering og navigation (`app_health`, `gui_system_error`, §9.33). Kodetabellen er tilpasset
+  Helios' busser. På I2C1 sidder touch. På I2C2 sidder U26, EEPROM 0x50/0x51
+  (`eeProm_Functions.c:18-21`) og DAC-modulet. På I2C3 sidder U16 og U20 (`Level_Control.c:132-138`).
+
+  | Kode | Betydning | Niveau | Forhold til [D333] |
+  |---|---|---|---|
+  | E11 | I2C2: SDA holdt lav | blokerende | 1:1 |
+  | E12 | I2C2: SCL holdt lav | blokerende | 1:1 |
+  | E13 | U26 (0x23) svarer vedvarende ikke, selvom I2C2 er fri | blokerende | U26 har U21's rolle |
+  | E21 | Volumen-expander U16 (L, 0x22) død (budget brugt) | blokerende | Som E21, pr. kanal |
+  | E22 | Volumen-expander U20 (R, 0x23) død (budget brugt) | blokerende | Ny |
+  | E23 | I2C3: SDA holdt lav | blokerende | Ny, som E11 |
+  | E24 | I2C3: SCL holdt lav | blokerende | Ny, som E12 |
+  | E31 | DAC-indgangsvalg eskaleret (§9.19) | ikke-blokerende | 1:1 |
+  | E41 | Reboot-loft nået (NFR-013) | ikke-blokerende | 1:1 |
+  | E42 | Denne boot skyldtes en watchdog-reset | ikke-blokerende | 1:1 |
+
+  - **E11/E12 og E23/E24:** Kriteriet er tidsbaseret som i [D333] (`T_bus` = 2 s). I2C3-driveren
+    får de samme tællere som I2C2-driveren ([D333] #391).
+  - **E13:** 2.0 læser U26 byte 1 som hjerteslag, og E13 latcher efter `T_E13` = 5 s uden en
+    OK-læsning. Intervallet følger [D333]'s U21-hjerteslag. I 1.0 læses U26 kun ved moduldetektion
+    og INT-poll (§4.6).
+  - **E21/E22:** Budgettet følger [D333] #235 pr. expander. En død expander eller en låst I2C3 låser
+    output-mute på U26 resten af tænd-cyklussen (§9.32).
+  - **Undertrykkelse:** E13 vises ikke, når E11/E12 er sat. E21/E22 vises ikke, når E23/E24 er sat.
+    Begge regler kræver, at `T_bus` er mindre end det andet kriterium (`_Static_assert`, som
+    [D333]).
+  - **Antal koder:** Der kan højst vises 5 koder samtidig, fx `E11 E21 E22 E31 E41`. Det er én af
+    E11–E13, E21+E22 eller én af E23/E24, E31 og én af E41/E42.
+  - **Ved E11–E13** kan firmwaren hverken holde eller slippe mute, fordi relæer og output-mute
+    sidder på U26, som i [D333].
+  - **Uden for normal drift** ejer opstart, standby og AC-fejlskærmene (FR-108) skærmen.
+  - **Ingen kode** for I2C1 (touch) og EEPROM'en, som i [D333]. En låst EEPROM-slave giver E11/E12.
+  - Om "switch off and on" heler U26, U16 og U20, afhænger af forsyningen i standby (§11.6).
 
 ### 4.11 Persistens
 
@@ -1246,6 +1281,8 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | Green bias | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] (FR-410) | — |
 | IR: RC5-dekoder, toggle, hold og overlays | [D333] FR-700–704, `drv_ir_rc5`, `app_ir`, `gui_remote_view` | Mekanismen 1:1 med RC5X og Helios' tider (§9.20–9.25). Power-koderne og opvågning fra standby er Helios-specifikke (FR-706) | Bænkbevist (D333 #56, #162, #280 del B) |
 | IR-kilde | [D333] FR-705, `app_settings`, `gui_ir_source` | 1:1, gemmes straks (§9.27) | Bænkbevist 2026-06-30, front/bag (D333 #56) |
+| SYSTEM ERROR med fejlkoder | [D333] FR-530, §9.41, `app_health`, `gui_system_error` | Mekanismen 1:1. Kodetabellen er Helios' (FR-830), med E22–E24 og hjerteslag på U26 | Host-testet (`test_app_health.c`). Skærmen er bænkbevist for E21, E11 og E42 (D333 #392) |
+| Mute-lås ved død volumen-expander | [D333] §9.40, `SvcMute_LockMuted` | 1:1, men udløst af U16/U20 og I2C3 (§9.32) | Bænkbevist 2026-10-27 (D333 #366) |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._
@@ -1422,8 +1459,8 @@ adfærd, er markeret **(adfærd)**.
       stadig på én NACK, men det er selvhelende og bruger ikke budgettet ([D333] #312). Et nyt
       skift starter med fuldt budget, og et skift til et analogt input annullerer ønsket.
     - **Synlig adfærd:** Mens skiftet venter eller er eskaleret, vises "NO SIGNAL" (FR-406).
-      [D333] dæmper desuden hængelås-ikonet og viser en eskalering som E31 på SYSTEM
-      ERROR-skærmen (FR-530). Om Helios gør det samme, afgøres i område 6 (§4.10).
+      En eskalering vises som E31 på SYSTEM ERROR-skærmen (FR-830, beslutning 2026-11-27), som
+      [D333] FR-530. [D333] dæmper desuden hængelås-ikonet. Det er ikke afgjort for Helios.
     - **Evidens:** host-verificeret i [D333] (`test_svc_dac.c`, #234, #245, #408).
 20. **IR samples i CN-ISR'en som [D333]** (beslutning 2026-11-27).
     - **Legacy:** ISR'en sætter kun et flag, og main-loopet dekoder senere ud fra antagelsen
@@ -1550,6 +1587,20 @@ adfærd, er markeret **(adfærd)**.
       kaldt fra `On_Off_Control.c:919` og `:1059`). Main-loopet står stille i 2 s (kode læst).
     - **2.0:** Det samme antal trin og den samme varighed, men hvert trin tages fra tick (§3.2).
     - **Synlig adfærd:** Den er uændret.
+32. **(adfærd) En død volumen-expander låser mute** (beslutning 2026-11-27), som [D333] §9.40.
+    - **Legacy:** Skrivningerne til U16 og U20 tjekkes ikke (`Level_Control.c:132-138`). Hvad
+      udgangen gør, når en expander står i høj-Z, er ikke målt på Helios (§11.6). I [D333] gav det
+      næsten fuld volumen uden volumenstyring.
+    - **2.0:** Er en expanders budget brugt (E21/E22), eller er I2C3 låst (E23/E24), låser
+      `svc_mute` output-mute på U26 resten af tænd-cyklussen (`SvcMute_LockMuted`). Ingen unmute
+      slipper låsen, og kun næste boot rydder den. Resten af tænd-sekvensen fuldføres uændret.
+    - **Forskel fra [D333]:** Mute sidder på I2C2 og volumen på I2C3, så låsen virker også ved en
+      låst I2C3.
+    - **Synlig adfærd:** Forstærkeren er tavs, og SYSTEM ERROR viser koden (FR-830).
+33. **(adfærd) Eskalerede fejl vises på SYSTEM ERROR-skærmen** (beslutning 2026-11-27), som
+    [D333] §9.41.
+    - **Legacy:** `errorDisplay` vises ingen steder (§4.10). I²C-fejl ses højst i UART-loggen.
+    - **2.0:** Koderne og reglerne står i FR-830.
 
 ---
 
@@ -1597,6 +1648,10 @@ _Udfyldes under område 2–9._
      statusordet (lock, USB tilsluttet m.m.) forkert, og init-skrivningerne til 0x54 og 0x60
      rammer kun ét register.
    - Hvad er green bias' polaritet, og hvad er HIGH-mønstret (000)?
+   - _Område 6 (FR-830, §9.32):_ Hvilket niveau giver udgangen, når U16 eller U20 står i høj-Z?
+     Det kan måles på bænken ved at holde SDA3 til GND, som [D333] gjorde.
+   - _Område 6 (FR-830):_ Mister U26, U16 og U20 forsyningen i standby, så en tænding er en POR?
+     Sidder EEPROM'en på standby-rail'en? Det afgør, om "switch off and on" heler E1x og E2x.
 
 ---
 

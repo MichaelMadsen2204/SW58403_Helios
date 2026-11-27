@@ -20,7 +20,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (FR-800–812, FR-880–882) er skrevet, og det samme er SYSTEM ERROR (FR-830) og Auto Standby
    (FR-815, FR-816), Pickup og AV (FR-850, FR-855, FR-861) og GUI-001 (§3.3, §9.39)
    (2026-11-27, se log). **Område 6 er gennemgået.** **Område 7 er gennemgået**
-   (§4.11, §9.40–9.43, se log "område 7, læst"). Næste område er 8 (UART-testinterface, §4.12).
+   (§4.11, §9.40–9.43, se log "område 7, læst"). I område 8 (UART-testinterface) er de 10 fund
+   placeret (§9.44–9.51, §10.5, se log "område 8, læst"). Næste skridt er at skrive kravene i §4.12.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -103,8 +104,12 @@ UART-testinterfacet er læst i `uart_control.c` (uændret siden `v1.0`), `app.c`
      TX pr. byte. **Placeret: §9.49** (som [D333]).
   8. Hvilke af [D333]'s ekstra kommandoer skal Helios have (`C`, `D`, `E`, `I`, `N`, `W`)?
      **Placeret: §9.50** (alle fire grupper og `M`. `D` er §9.44).
-  9. Hvor er interfacet aktivt? [D333] lytter også i fejltilstand.
+  9. Hvor er interfacet aktivt? [D333] lytter også i fejltilstand. **Placeret: §9.51** ([D333]
+     plus hovedmenuen, og bytes uden for vinduet kasseres).
   10. Baudraten: Helios har 115200. Teststativer afhænger af den, så den bevares som parameter.
+      **Afgjort af PRD §1:** [D333] kører 230400 (BRG 108 ved 100 MHz), og Helios beholder 115200.
+- **Alle 10 fund er placeret.** Næste skridt er at skrive kravene i §4.12 (FR-1200, FR-1201,
+  formatet for `[BOOT]` og baudraten).
 
 ### 2026-11-27 (område 7, læst)
 

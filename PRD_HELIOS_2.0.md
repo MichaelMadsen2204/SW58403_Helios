@@ -1968,6 +1968,23 @@ adfærd, er markeret **(adfærd)**.
     - Alle kvitterer `#c:vv;`. Linjerne fra `W`, `I` og `N` er fri tekst gennem kontakten (§9.44).
     - **Synlig adfærd:** Kun for den, der sender kommandoerne. `W` og `E` er destruktive og er
       bænkværktøjer.
+51. **(adfærd) Hvor UART-kommandoer virker** (beslutning 2026-11-27, §4.12), som [D333] FR-1200
+    plus 1.0's hovedmenu.
+    - **Legacy (kode læst):**
+      - Kommandoer læses på actionScreen og simpleView efter opstart (`app.c:192`, `:214`) og i
+        `APP_STATE_IDLE` uden opstartstjek (`app.c:280`). `APP_STATE_IDLE` er init-tilstanden og
+        hovedmenuen (`Screen_SimpleView.c:179` og andre).
+      - Om `APP_STATE_IDLE` også gælder i standby, er ikke afklaret.
+      - I andre menuer og på fejlskærmene bliver bytes liggende i FIFO'en. De udføres senere eller
+        giver overrun (§9.46). RX tømmes i ON5 (`On_Off_Control.c:975`).
+    - **2.0:**
+      - Kommandoer udføres på actionScreen, simpleView og hovedmenuen efter opstart og i
+        fejltilstand (FR-830).
+      - De udføres ikke under opstart, i andre menuer eller i standby.
+      - Bytes uden for vinduet læses og kasseres uden svar, så de hverken udføres senere eller
+        giver overrun.
+    - **Synlig adfærd:** En kommando sendt i en undermenu bliver ikke længere udført, når menuen
+      forlades. Fejlvejene kan testes, mens SYSTEM ERROR vises.
 
 ---
 

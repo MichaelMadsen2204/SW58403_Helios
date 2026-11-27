@@ -1462,7 +1462,7 @@ linkerscript eller skift af toolchain.
 | Trigger | `0x5048434D` ×4 på `KVA1(0x80000000)`, derefter software-reset. BTL rydder kun ord 0. | `bootloader_common.h:74-76`, `BTL app.c:117-126` |
 | BTL's RAM | Fra `0x80000010`, stak i toppen | `btl.ld:276`, BTL-016 |
 | Persistent RAM | `.persist` på `0x80000000`, magic ≠ mønster | §9.60 |
-| Pin | RA5 aktiv lav, læses af BTL ved hvert reset | `BTL user.h:64-67` |
+| Pin | RA5 aktiv lav, læses af BTL ved hvert reset. Ingen ekstern pull-up, så 2.0 SKAL slå den interne til i MCC (`CNPUA` bit 5) | `BTL user.h:64-67`, `plib_gpio.c:70` (App og BTL) |
 
 **FR-1100 (bootloader-aktivering, §9.59, TIM-22):** Som [D333] FR-1100:
 - **Debounce:** Pinnen er lav i mindst 20 ms. Den polles fra ticket i alle vågne tilstande: boot-stien
@@ -2598,7 +2598,9 @@ _Udfyldes under område 2–9._
 7. **Bootloader-pinnen RA5** (§4.13, §10.7).
    - ~~Hvad den er fysisk.~~ **Afgjort 2026-11-27:** En knap bag et hul i bagpladen ved USB-stikket,
      som betjenes med en papirclips, som i [D333]. Brugeren kan nå den (§10.7).
-   - **Åbent:** Er der en pull-up i hardware, eller bygger BTL 1.0 og appen på MCC's interne pull-up?
+   - ~~Pull-up.~~ **Afgjort 2026-11-27:** Der er ingen ekstern pull-up. MCU'ens interne pull-up
+     skal være slået til i MCC. App og BTL 1.0 gør det allerede (`CNPUASET = 0x20U`,
+     `plib_gpio.c:70` i begge) (§4.13).
 
 ---
 

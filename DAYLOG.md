@@ -29,7 +29,6 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    Det næste er §2 (hardware-platform: busser, adresser, GPIO, interrupts) og §3.1 (lagdeling og
    modulopdeling, ud fra [D333] §3.1). Derefter skal de forældede "_Udfyldes_"-noter i §4, §8 og §10
    ryddes op.
-   - **Åbent fra §4.13:** Har RA5 en pull-up i hardware (§11.7)?
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -71,7 +70,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 - **§11.7 (Michael):** RA5 er en knap bag et hul i bagpladen ved USB-stikket (papirclips), som i
   D333. Brugeren kan nå den, så §10.7's forudsætning holdt ikke. Michael har valgt at bevare
   reset uden mute som i D333, fordi det kræver en bevidst handling.
-- **Stadig åbent:** §11.7 (er der en pull-up i hardware på RA5?).
+- **Pull-up (Michael):** Knappen har ingen ekstern pull-up, så den interne skal sættes i MCC. App og
+  BTL 1.0 gør det (`CNPUASET = 0x20U`). Det står i kontrakttabellen i §4.13. §11.6 og §11.7 er
+  dermed lukket.
 - Rettet i §4.6, FR-403, FR-410, §4.10, §4.11, §4.14 og §9.32/§9.52.
 
 ### 2026-11-27 (§7)

@@ -913,8 +913,13 @@ adfærd, er markeret **(adfærd)**.
       `muteFlg` (`Dac_Control.c:957`). Ved user-mute på et digitalt input er relæerne
       lukkede, og ved digital → digital springes det analoge mute over (§4.6). Der spiller
       derfor lyd, mens mute vises (kode læst, ikke set på bænken).
+    - **Legacy, samme årsag:** `setInputRelay()` muter og unmuter DAC-kanalen på et digitalt
+      input, hver gang holdet udløber, og når niveauet forlader 0
+      (`MB_IOexp_U26_Control.c:424-429`, `Level_Control.c:102`). Det giver et mute-blip og
+      150 ms blokering. USB unmutes her med kabel tilsluttet, men uden at se på lock.
     - **2.0:** DAC-kanalen unmutes kun ét sted, i `svc_mute` (§9.11). Det sker, når holdet er
       udløbet, der ikke er user-mute, og der er lock, hvis inputtet er USB (FR-404 i [D333]).
+      Der er intet ekstra mute-blip, og USB unmutes aldrig uden lock.
       `svc_dac`'s valg af input efterlader kanalen mutet. [D333's `SvcDac_SelectInput`
       unmuter selv efter S/PDIF-sekvensen (`svc_dac.c:198-241`). Det ændres, medmindre det
       viser sig, at D333's `svc_mute` allerede muter igen bagefter.]
@@ -960,6 +965,12 @@ adfærd, er markeret **(adfærd)**.
       §9.14.
 
     Ingen adfærd ændres.
+18. **(adfærd) Green bias på AV følger det faste indeks 66** (beslutning 2026-11-27).
+    - **Legacy:** Bias vælges ud fra `curLvl` (`MB_IOexp_U26_Control.c:365-389`). På AV står
+      relæerne fast på 66 (§4.2), men bias følger det skjulte `curLvl`. Det kan give LOW,
+      mens udgangen står højt.
+    - **2.0:** På et AV-input vælges bias ud fra 66. På alle andre inputs bruges `curLvl`
+      som i legacy (§10.3).
 
 ---
 
@@ -975,6 +986,14 @@ _Udfyldes under område 2–9._
      analoge inputs, og efter §9.10 heller ikke på digitale.
    - Kurven er en parameter, som brugeren kan mærke, og den følger 1.0 (§1).
      [D333] har ingen balance.
+2. **PCM-filtret går rundt på IR, men ikke på touch** (beslutning 2026-11-27).
+   - IR har én tast, og den går fra 7 til 1 (`IR_control.c:366-369`).
+   - Touch har op og ned og stopper ved 1 og 7 (`Screen_Digital_Setup.c:66-75`).
+   - Forskellen er en parameter, som brugeren kan mærke, og den følger 1.0 (§1).
+3. **Green bias følger `curLvl`, ikke det effektive relæ-indeks** (beslutning 2026-11-27).
+   - Digital gain, level match og balance flytter ikke bias-trinnet
+     (`MB_IOexp_U26_Control.c:365-389`).
+   - Tærsklerne er de samme som i 1.0 (§4.6). Undtagelsen er AV (§9.18).
 
 ---
 

@@ -908,6 +908,58 @@ adfærd, er markeret **(adfærd)**.
       MBB-par og ingen korruption.
     - **Bænktest på Helios:** Testen gentages med IR-spam under volumenskift. Den kan
       automatiseres med en Arduino som IR-kilde og UART som orakel.
+13. **(adfærd) User-mute holder på tværs af digitale inputskift** (beslutning 2026-11-27).
+    - **Legacy:** `setDigitalInput()` unmuter DAC-kanalen på S/PDIF-grenen uden at se på
+      `muteFlg` (`Dac_Control.c:957`). Ved user-mute på et digitalt input er relæerne
+      lukkede, og ved digital → digital springes det analoge mute over (§4.6). Der spiller
+      derfor lyd, mens mute vises (kode læst, ikke set på bænken).
+    - **2.0:** DAC-kanalen unmutes kun ét sted, i `svc_mute` (§9.11). Det sker, når holdet er
+      udløbet, der ikke er user-mute, og der er lock, hvis inputtet er USB (FR-404 i [D333]).
+      `svc_dac`'s valg af input efterlader kanalen mutet. [D333's `SvcDac_SelectInput`
+      unmuter selv efter S/PDIF-sekvensen (`svc_dac.c:198-241`). Det ændres, medmindre det
+      viser sig, at D333's `svc_mute` allerede muter igen bagefter.]
+    - **Bænktest:** mute, skift til et S/PDIF-input og mål, at der er stille. Den kan
+      automatiseres med en Arduino som IR-kilde og UART som orakel.
+14. **(adfærd) Phono-inputtet gendannes også uden DAC-modul** (beslutning 2026-11-27).
+    - **Legacy:** `handlePhonoConfiguration()` kaldes ikke (`On_Off_Control.c:1045`), så
+      `maxInp` er 5, når ON5 validerer inputtet (`:978`, `:1020`). Med phono-modul og uden
+      DAC-modul bliver et gemt input 6 derfor til input 1, og phono-tiden på 23 s
+      (`:1031`) bruges aldrig (kode læst, ikke set på bænken).
+    - **2.0:** `maxInp` afledes af begge moduler, før inputtet valideres, som [D333] FR-110.
+      Phono gendannes og får phono-tiden i ON5 (FR-200).
+    - **Bænktest:** Helios med kun phono-modul, input 6 valgt, sluk og tænd.
+15. **S/PDIF-Fs opsamles uafhængigt af skærmen** (beslutning 2026-11-27).
+    - **Legacy:** `DIR_FS_AcqTask` kaldes kun fra `updateActionScreen()`
+      (`screen_Action.c:1363-1367`). Kommer lock, mens en anden skærm vises, sker der ingen
+      re-init af DIR'en ved lock-flanken, og Fs læses ikke.
+    - **2.0:** Helios' tilstandsmaskine kører i `svc_dac` i hvert tick, uanset skærm
+      (NFR-010, NFR-015). Tiderne er som i legacy (§4.6). GUI'en læser kun resultatet.
+      [D333 har sin egen Fs-læsning, `SvcDac_GetSpdifFsHz`. Michael har valgt at
+      bevare Helios' tilstandsmaskine.]
+    - **Synlig adfærd:** uændret på action-skærmen. Fs er korrekt fra første visning efter
+      et skærmskift.
+    - **Bemærk:** Lyden går gennem DAC'ens S/PDIF-dekoder, og DIR'en bruges kun til Fs
+      ([D333]'s handoff). Det er ikke bekræftet på Helios.
+16. **Fs-opslag tjekkes mod tabellens længde** (beslutning 2026-11-27).
+    - **Legacy:** DIR'ens Fs-felt er 0–15, men `dacFsTabel` har kun 15 indgange
+      (`ui_globals.c:61-76`). Værdien 15 læser ud over tabellen, sandsynligvis ind i
+      `usbFsTabel`. USB-tabellen er erklæret med 16 indgange, men kun 15 er udfyldt
+      (`:78-93`), så USB-Fs 15 viser en tom streng.
+    - **2.0:** Værdier uden en indgang vises som "NA", som `dacFsTabel` indgang 13.
+17. **Død DAC- og statuskode videreføres ikke** (beslutning 2026-11-27), som §9.9. Følgende
+    kan ikke nås eller har ingen virkning, og det overføres ikke:
+    - `lockedButNoFs_Callback` (`screen_Action.c:320-324`), som registreres ingen steder,
+      og grenen i `updateActionScreen` (`:1415-1423`).
+    - `dsdFilter`: `dacSetDSDFilter()` og begge knapper er tomme (`Dac_Control.c:686-689`,
+      `Screen_Digital_Setup.c:63-64`). EEPROM-byte 0x08 bliver **reserveret**. 2.0 læser og
+      skriver den ikke, og layoutet fra 1.0 bevares (område 7).
+    - Fejlstatus-skelettet: `errorCheckFlg` (`On_Off_Control.c:974`, `:1110`),
+      `saveErrorStatus` og `getErrorStatus` (`eeProm_Functions.c:371-386`) og de
+      udkommenterede fejlbits (`MB_IOexp_U26_Control.c:678-679`).
+    - `handlePhonoConfiguration()` (`MB_IOexp_U26_Control.c:486-507`), som erstattes af
+      §9.14.
+
+    Ingen adfærd ændres.
 
 ---
 

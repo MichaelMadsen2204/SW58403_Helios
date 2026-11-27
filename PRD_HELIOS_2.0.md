@@ -1226,7 +1226,7 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
   - Valget er MM eller MC, og default er MM (§9.37). Et tryk ændrer kun valget i RAM.
   - Når skærmen forlades med en ændring, sættes relæ-indekset til 0 via `svc_volume` (som
     [D333] FR-306, uden blokerende ventetid, FR-301). Derefter gemmes valget, og U26 byte 2
-    bit 0 skrives, hvor 1 = MM. Så kører stabiliseringsbaren i 25 s (TIM-xx, 100 × 250 ms) fra
+    bit 0 skrives, hvor 1 = MM. Så kører stabiliseringsbaren i 25 s (TIM-19, 100 × 250 ms) fra
     tick, og bagefter vises hovedmenuen. Niveauet genskrives ved menu-exit (FR-882, FR-314).
   - Uden ændring går exit direkte til hovedmenuen.
   - OFF under stabiliseringen afbryder baren. Valget er allerede gemt og skrevet.
@@ -1541,42 +1541,50 @@ FR-1303. `BOOT` læser den.
 
 | ID | Parameter | Værdi | Reference |
 |---|---|---|---|
+**Numre:** Under TIM-50 er numrene [D333]'s og bruges kun, hvor parameteren har samme rolle som
+i [D333]. Værdien er Helios' egen. TIM-50 og op er Helios-specifikke og fordelt i blokke pr.
+område: power 50–59, GUI 60–64, IR 65–69, input og volumen 70–74, DAC 75–79 (beslutning
+2026-11-27). Helios' ON-trin får ikke [D333]'s TIM-01–05, fordi trinene gør noget andet (§4.1).
+IR-poll-vinduet ved opvågning (500 ms, `IR_control.c:34`) udgår i 2.0 og har intet nummer (§9.25).
+
+| ID | Parameter | Værdi | Reference |
+|---|---|---|---|
+| TIM-04 | ON-trin 5, stabilisering (D333 `T_STAB`: 21/31 s) | 18 000 ms, phono 23 000 ms | `On_Off_Control.c:1028-1029` |
+| TIM-08 | Inputskift: mute-hold kort / langt (D333: 200 / 2000 ms) | 200 / 2000 ms | `MB_IOexp_U26_Control.c:479` |
+| TIM-09 | Make-before-break: venten pr. skrivning (D333: 1 ms pr. fase) | 2 ms × 6 skrivninger | `Level_Control.c:133-164` |
+| TIM-15 | Volumen-repeat: første / gentagelse (D333: 400 / 120 ms) | 400 / 120 ms | `screen_Action.c:32-33` |
 | TIM-16 | `T_ACTIONVIEW` | 6 s (D333: 6 s) | `app.h:84` |
 | TIM-17 | `T_DIM` | 8 s (Helios-værdi bevares; D333: 10 s) | `app.h:85` |
+| TIM-18 | IR-overlay og display-view (D333: 3 s) | 3000 ms | `IR_control.c:309`, `:361` |
+| TIM-19 | Pickup-stabilisering (D333: 25 s) | 100 × 250 ms = 25 s | `Screen_Pickup_Selection.c:64-65`, FR-850 |
+| TIM-20 | DAC-init: settling før `dacSetup` (D333: 500 ms) | 500 ms | `MB_IOexp_U26_Control.c:509-524`, FR-400 |
 | TIM-22 | Debounce af bootloader-pin (som D333) | 20 ms | FR-1100, §9.59 (legacy: ingen debounce) |
+| TIM-23 | RC5: offset fra flanke / halvbit / ventetid på burst (D333: 448 / 910 µs) | 1333 / 889 µs / 40 ms | `IR_control.c:444-467` |
 | TIM-24 | `T_AUTOSTBY` | OFF eller 1–10 t, i trin på 1 t (som D333) | FR-107, FR-815 (ny i 2.0) |
 | TIM-25 | `T_AUTOSTBY_WARN` | 30 s (som D333) | FR-816 (ny i 2.0) |
-| TIM-xx | `T_SCREENSWAP` | 300 ms | `app.h:86` |
-| TIM-xx | Debounce on/off-knap og 12V-link | 20 ms | `On_Off_Control.c:277`, `:743`, `:760` |
-| TIM-xx | IR-poll-vindue ved opvågning (udgår i 2.0, §9.25) | 500 ms | `IR_control.c:34` |
-| TIM-xx | RC5: offset fra flanke / halvbit / ventetid på burst (D333 TIM-23: 448 / 910 µs) | 1333 / 889 µs / 40 ms | `IR_control.c:444-467` |
-| TIM-xx | RC5: blokering efter Manchester-fejl | 25 ms | `IR_control.c:486` |
-| TIM-xx | IR-volumen: forsinkelse før gentagelse (D333 FR-702: 200 ms) | 200 ms (legacy blokerende, 2.0 fra sidste accept, §9.25) | `IR_control.c:795` |
-| TIM-xx | IR-overlay og display-view (D333 TIM-18: 3 s) | 3000 ms | `IR_control.c:309`, `:361` |
-| TIM-xx | Noise-guard ved opvågning | 500 ms | `On_Off_Control.c:16` |
-| TIM-xx | Poll af venstre forsyning | 10 ms × 5 samples | `On_Off_Control.c:1255-1256` |
-| TIM-xx | Debounce af 12V-link (faldende flanke) | 30 ms | `On_Off_Control.c:116` |
-| TIM-xx | ON-trin 1 / 2 / 3 / 4 | 500 / 500 / 1500 / 3000 ms | `On_Off_Control.c:900`, `:910`, `:921`, `:964` |
-| TIM-xx | ON-trin 5, stabilisering (D333 `T_STAB`: 21/31 s) | 18 000 ms, phono 23 000 ms | `On_Off_Control.c:1028-1029` |
-| TIM-xx | ON-trin 6 / 7 | 1000 / 500 ms | `On_Off_Control.c:1062`, `:1092` |
-| TIM-xx | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
-| TIM-xx | Baglys-fade ind/ud (legacy blokerende, 2.0 fra tick, §9.31) | 40 × 50 ms | `Display_Backlight.c:4-24` |
-| TIM-xx | Pickup-stabilisering (D333 TIM-19: 25 s) | 100 × 250 ms = 25 s | `Screen_Pickup_Selection.c:64-65`, FR-850 |
-| TIM-xx | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
-| TIM-xx | AC-mismatch: LED skifter / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
-| TIM-xx | Inputskift: mute-hold kort / langt (D333 TIM-08: 200 / 2000 ms) | 200 / 2000 ms | `MB_IOexp_U26_Control.c:479` |
-| TIM-xx | Inputskift: venten efter analog mute | 20 ms (blokerende) | `MB_IOexp_U26_Control.c:464` |
-| TIM-xx | Make-before-break: venten pr. skrivning (D333 TIM-09: 1 ms pr. fase) | 2 ms × 6 skrivninger | `Level_Control.c:133-164` |
-| TIM-xx | Volumen-repeat: første / gentagelse (D333 TIM-15: 400 / 120 ms) | 400 / 120 ms | `screen_Action.c:32-33` |
-| TIM-xx | Volumen-repeat: stop uden touch-opdatering / maks. antal gentagelser | 250 ms / 84 | `screen_Action.c:34-35` |
-| TIM-xx | DAC-init: settling før `dacSetup` (D333 TIM-20: 500 ms) / efter volume-rate | 500 ms / 2 × 150 ms (blokerende, FR-400) | `MB_IOexp_U26_Control.c:509-524`, `Dac_Control.c:898`, `:907` |
-| TIM-xx | Digitalt skift: efter kanal-mute / BCK-toggle / før unmute | 75 + 100 ms / 2 × 5 ms / 30 ms | `Dac_Control.c:926-962` |
-| TIM-xx | Digitalt skift: retry-interval / maks. antal (D333 §9.28) | 500 ms / 10 | §9.19 |
-| TIM-xx | Fs-visning: hold efter ændring | 350 ms | `screen_Action.c:1023-1056` |
-| TIM-xx | S/PDIF-Fs: første læsning / retry / maks. retries | 30 ms / 20 ms / 10 | `screen_Action.c:1142-1301` |
-| TIM-xx | S/PDIF-Fs: DIR re-init maks. pr. lock / afstand / overvågning under lock | 3 / 600 ms / 200 ms | `screen_Action.c:1142-1301` |
+| TIM-50 | ON-trin 1 / 2 / 3 / 4 | 500 / 500 / 1500 / 3000 ms | `On_Off_Control.c:900`, `:910`, `:921`, `:964` |
+| TIM-51 | ON-trin 6 / 7 | 1000 / 500 ms | `On_Off_Control.c:1062`, `:1092` |
+| TIM-52 | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
+| TIM-53 | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
+| TIM-54 | Noise-guard ved opvågning | 500 ms | `On_Off_Control.c:16` |
+| TIM-55 | Debounce on/off-knap og 12V-link | 20 ms | `On_Off_Control.c:277`, `:743`, `:760` |
+| TIM-56 | Debounce af 12V-link (faldende flanke) | 30 ms | `On_Off_Control.c:116` |
+| TIM-57 | Poll af venstre forsyning | 10 ms × 5 samples | `On_Off_Control.c:1255-1256` |
+| TIM-58 | AC-mismatch: LED skifter / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
+| TIM-60 | `T_SCREENSWAP` | 300 ms | `app.h:86` |
+| TIM-61 | Baglys-fade ind/ud (legacy blokerende, 2.0 fra tick, §9.31) | 40 × 50 ms | `Display_Backlight.c:4-24` |
+| TIM-62 | Volumen-repeat: stop uden touch-opdatering / maks. antal gentagelser | 250 ms / 84 | `screen_Action.c:34-35` |
+| TIM-63 | Fs-visning: hold efter ændring | 350 ms | `screen_Action.c:1023-1056` |
+| TIM-65 | RC5: blokering efter Manchester-fejl | 25 ms | `IR_control.c:486` |
+| TIM-66 | IR-volumen: forsinkelse før gentagelse (D333 FR-702: 200 ms) | 200 ms (legacy blokerende, 2.0 fra sidste accept, §9.25) | `IR_control.c:795` |
+| TIM-70 | Inputskift: venten efter analog mute | 20 ms (blokerende) | `MB_IOexp_U26_Control.c:464` |
+| TIM-75 | DAC-init: venten efter volume-rate | 2 × 150 ms (blokerende, FR-400) | `Dac_Control.c:898`, `:907` |
+| TIM-76 | Digitalt skift: efter kanal-mute / BCK-toggle / før unmute | 75 + 100 ms / 2 × 5 ms / 30 ms | `Dac_Control.c:926-962` |
+| TIM-77 | Digitalt skift: retry-interval / maks. antal (D333 §9.28) | 500 ms / 10 | §9.19 |
+| TIM-78 | S/PDIF-Fs: første læsning / retry / maks. retries | 30 ms / 20 ms / 10 | `screen_Action.c:1142-1301` |
+| TIM-79 | S/PDIF-Fs: DIR re-init maks. pr. lock / afstand / overvågning under lock | 3 / 600 ms / 200 ms | `screen_Action.c:1142-1301` |
 
-_Udvides under hvert område. Numre tildeles, når listen er komplet._
+Alle værdier defineres som navngivne konstanter, jf. [CONV] §5.
 
 ---
 

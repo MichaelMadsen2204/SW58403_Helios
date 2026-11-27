@@ -67,13 +67,26 @@ Beslutningerne i #1 (2026-11-26 og 2026-11-27):
 
 ## 2. Hardware-platform (fastlagt, må ikke ændres)
 
-_Udfyldes under område 2–9 (busser, adresser, GPIO, interrupts)._
+Kilde: MCC-tilstanden i `App/SW58403.X` og den genererede kode i `App/src/config/default` på
+`v1.0` (kode læst), medmindre andet står. Intet er tjekket i diagrammet, medmindre Michael har
+bekræftet det.
 
 | Element | Beskrivelse |
 |---|---|
 | Produkt | Forforstærker. [D333] er en integreret forstærker (Michael 2026-11-27). |
-| MCU | PIC32MZ2064DAR176, MPLAB Harmony 3, Legato GUI 480×272 (PDA TM4301B) |
+| MCU | PIC32MZ2064DAR176, MPLAB Harmony 3, Legato GUI 480×272 (PDA TM4301B). CPU 150 MHz, PBCLK2–5 75 MHz (`definitions.h`, `core.yml`) |
 | Toolchain | XC32 4.60, MPLAB X v6.25, DFP `PIC32MZ-DA_DFP` 1.5.231 |
+| Display | Parallel RGB via GLCD (`GLCD_DEN` RJ7). Backlight-PWM på OC9 (`BACKLIGHT` RD0) med TMR2 som tidsbase: 1:1 af 75 MHz, `PR2` = 7499, dvs. 10 kHz (`plib_tmr2.c:77`, `plib_ocmp9.c:61-64`). `GLCD_DISP_ON_STBY` RH10 |
+| **I²C1 — touch** | 50 kHz (`i2c1.yml`). Touch-controller på `0x41` (`drv_touch_controller.c:46`), interrupt på `DRV_TOUCH_PIN_INT` RC3, reset på `DRV_TOUCH_PIN_RESET` RH6 |
+| **I²C2 — kontrolbus** | 100 kHz (`i2c2.yml`). U26 PCAL6524 på `0x23` (§4.6), EEPROM 24LC04B på `0x50`/`0x51` (§4.11). DAC-modulet: expander PCAL6524 på `0x20`, AK4118 (DIR) på `0x10`, ES9039 på `0x48` (`app.h:162-164`) |
+| **I²C3 — volumenbus** | 400 kHz (`i2c3.yml`). U16 på `0x22` (venstre) og U20 på `0x23` (højre) (§4.3) |
+| UART1 | 115200 8N1 (`U1BRG` = 162 med BRGH af 75 MHz, `plib_uart1.c:94-100`). Testinterface og debug (§4.12) |
+| USB | USBHS host, MSD (§4.14). VBUS er altid tændt og går gennem en MICROSMD050F (Michael 2026-11-27) |
+| `USB_VBUS_ANA` RE4 | Den halve VBUS-spænding efter PTC'en (FR-1304). I 1.0 er pinnen **digital** (`ANSELECLR = 0x112U`, `plib_gpio.c:91`), og projektet har ingen ADC. 2.0 SKAL tilføje ADCHS i MCC og sætte RE4 analog |
+| `IO_EXP_INT` RC2 | Aktiv lav, intern pull-up. Polles i `APP_STATE_IDLE` og udløser `checkStatus()` (`app.c:273`, §4.6). Hvilken expander, der driver den, er ikke tjekket i diagrammet |
+| `ACTIVATE_BOOTLOADER` RA5 | Papirclips-knap, aktiv lav, intern pull-up (`CNPUASET = 0x20U`, `plib_gpio.c:70`). CN-interrupt (§4.13) |
+| Interrupts | INT0 (on/off, se nedenfor), CN på port A (RA5), C, H (RH3 IR) og J (RJ15 knap), CORE_TIMER, TMR2, I2C1–3, USB, USB_DMA og GLCD. Alle har prioritet 1, subprioritet 0 (`plib_evic.c:60-75`). Callbacks registreres i `On_Off_Control.c:559-583` |
+| Ubrugte pins i 1.0 | `SN_CHANGE` RB5 (kun en udkommenteret linje, `On_Off_Control.c:548`), `WAKE_UP` RH14 og `BSP_MAXTOUCH_CHG` RE1 er konfigureret i MCC, men bruges ikke af appen. Deres funktion er ikke tjekket i diagrammet |
 | Forsyning i standby | MCU'en er forsynet i standby og ligger i deep sleep eller IDLE (§4.1). Forskel fra [D333], hvor U3 mister forsyningen. |
 | INT0 | Udgang af en AND-gate med indgange fra on/off-knap, IR og 12V-link (bekræftet af Michael 2026-11-27). Vækker fra deep sleep på faldende flanke (`INT0EP` = 0, `plib_evic.c:57`). Når 12V-linket er aktivt, holdes udgangen lav, og der kommer ingen flanke (`On_Off_Control.c:1153`). Indgangenes polaritet er udledt af koden og ikke tjekket i diagrammet. |
 | GPIO ind (power) | `ON_OFF_BUTTON` RJ15 (CN, høj = trykket), `LINK_12V` RB4 (aktiv lav), `IR_RC5` RH3 (CN; kommentaren i `On_Off_Control.c:1162` siger fejlagtigt RH11), `AC_RESULT` RE8 (1 = `VoltageLow`, 0 = `VoltageHigh`), `AC_RESET` RC4 (høj = venstre forsyning til stede), `ACTIVATE_BOOTLOADER` (CN) (`plib_gpio.h`, `ac_check.h:39-49`) |
@@ -1549,7 +1562,8 @@ FR-1303. `BOOT` læser den.
 - **Hændelse:** En `[USB]`-linje på UART'en, når VBUS falder under tærsklen, og når den kommer over
   igen. Der er ingen visning og ingen fejlkode, så brugeren mærker ingen ny adfærd.
 - **Tærskel, hysterese og samplingsinterval** fastlægges på bænken (BNK-18).
-- ADC-kanalen skal sættes op i MCC, ikke i hånden (NFR-015).
+- ADC-kanalen skal sættes op i MCC, ikke i hånden (NFR-015). I 1.0 er RE4 digital, og projektet
+  har ingen ADC (§2).
 
 ---
 

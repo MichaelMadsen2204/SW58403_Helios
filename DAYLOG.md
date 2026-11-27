@@ -26,8 +26,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (FR-1300–1303). **Område 9 er gennemgået.** Alle 9 områder er nu gennemgået. **§4.13
    (bootloader-kontrakt) er gennemgået** (kontrakttabel, FR-1100, FR-1101, §9.59–9.61, §10.7, se
    log "§4.13"). **§1 og §5 er skrevet** (se log "§1 og §5"). **§6 og §7 er skrevet** (se log "§6" og "§7").
-   Det næste er §2 (hardware-platform: busser, adresser, GPIO, interrupts) og §3.1 (lagdeling og
-   modulopdeling, ud fra [D333] §3.1). De forældede "_Udfyldes_"-noter i §4, §8 og §10 er ryddet
+   **§2 er skrevet** ud fra MCC-tilstanden (se log "§2"). To spørgsmål til diagrammet står åbne:
+   hvem driver `IO_EXP_INT` (RC2), og hvad er `SN_CHANGE`, `WAKE_UP` og `BSP_MAXTOUCH_CHG`.
+   Det næste er §3.1 (lagdeling og modulopdeling, ud fra [D333] §3.1). De forældede "_Udfyldes_"-noter i §4, §8 og §10 er ryddet
    op, og §8 har fået rækker for område 6–9 og §4.13 (se log "§8"). Fire rækker står som "Tjekkes".
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
@@ -54,6 +55,15 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§2)
+
+- §2 er udfyldt fra `App/SW58403.X`'s MCC-tilstand og `App/src/config/default`. Indholdet er
+  display og PWM (OC9/TMR2, 10 kHz), I²C1–3 med hastigheder og adresser, UART1, USB, interrupts
+  og ubrugte pins.
+- **Fund:** `USB_VBUS_ANA` (RE4) er digital i 1.0, og der er ingen ADC i projektet. FR-1304
+  kræver ADCHS i MCC og RE4 analog. Det står i §2.
+- CPU'en kører 150 MHz og PBCLK2–5 75 MHz.
 
 ### 2026-11-27 (§8)
 

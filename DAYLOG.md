@@ -15,15 +15,14 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** `PRD_HELIOS_2.0.md` har D333's skelet, og
-   område 1 (eksekveringsmodellen) er gennemgået. Næste skridt er **område 2, power**
-   (`On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c`) til §4.1 og §2.
-   Tabellen i PRD'ens §4 viser rækkefølgen og status for område 1–9. Ét område giver én
-   commit. Hver legacy-adfærd mærkes `kode læst fil:linje`, og det, der ligner en fejl, skal
-   Michael placere i §9 (rettes) eller §10 (bevares). Afklar under område 2, om MCU'en går i
-   deep sleep i standby (`POWER_DS_WakeupSourceGet`) eller mister forsyningen som på D333.
-   Brug kommentaren på #1 (BTL 1.0's bindinger og kravene fra de fælles erfaringer) og #3
-   (kendte fejl i 1.0).
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1 (eksekveringsmodel) og område 2
+   (power) er gennemgået. Næste skridt er **område 3: input, level og level match**
+   (`Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c`) til §4.2
+   og §4.3. Tabellen i PRD'ens §4 viser rækkefølgen og status. Arbejdsgang:
+   - Hver legacy-adfærd mærkes `kode læst fil:linje`.
+   - Det, der ligner en fejl, placerer Michael i §9 (rettes) eller §10 (bevares), én ad gangen.
+   - Brug kommentaren på #1 (BTL 1.0's bindinger og kravene fra de fælles erfaringer) og #3
+     (kendte fejl i 1.0).
    **Genbrug af D333 (PRD §1):** Findes der en testet løsning i D333
    (`D:/MPLAB/d333/SW_U3_REBUILD`, samme MCU), så genbruges den. Find derfor D333's løsning
    for hvert område, og gennemgå 1.0 for Helios-specifikke forskelle. Ved konflikt gælder
@@ -35,6 +34,26 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    - GUI-002 er for snæver. Composer kan også inkludere eksplicitte glyf-intervaller.
 
 ## Log
+
+### 2026-11-27 (område 2)
+- Område 2 (power) er gennemgået i PRD §2, §4.1, §5, §8 og §9.4–9.9 (kode læst).
+- **Standby på Helios:** MCU'en har forsyning i standby og ligger i deep sleep, eller i IDLE
+  ved manuel sluk med aktivt 12V-link.
+  - Opvågning fra deep sleep er et reset.
+  - D333 har ingen tilsvarende kode, for dér ejer U12 tænd/sluk og 12V-linket.
+- **INT0 er en AND-gate** af knap, IR og 12V-link. Signalerne er bekræftet af Michael;
+  polariteten er udledt af koden og ikke tjekket i diagrammet.
+- **Beslutninger (§9):**
+  - AC-målingen afgøres ved majoritet som på D333.
+  - Spændingssettingen seedes ved første boot.
+  - Noise-guarden evalueres i hvert tick.
+  - Låsen for venstre forsyning nulstilles i hver ON-periode.
+  - OFF gemmer ikke under opstart.
+  - Død power-kode videreføres ikke.
+- **Beslutning:** Udløber Auto Standby, mens 12V-linket er aktivt, behandles det som en
+  manuel sluk (FR-107/121).
+- **Afvist kandidat:** Timer-handles i `SYS_TIME` er sikre mod genbrug, fordi handlet
+  indeholder en token (`sys_time.c:137-147`, `:580`).
 
 ### 2026-11-27
 - PRD for 2.0 er startet på branch `docs/prd-2.0` (`PRD_HELIOS_2.0.md`). Skelettet følger

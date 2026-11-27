@@ -115,13 +115,13 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
   skriver.
 - **NFR-011:** Ingen blokerende delays i normal drift. Ventetider er state-machine-tilstande
   med sammenligning af tidsstempler. Undtagelser markeres `// CONVENTION-EXCEPTION:` og står
-  her. _(Liste udfyldes under område 2 og 5: OFF-sekvensens sidste fase og IR-sampling er
-  kandidater, som i [D333].)_
+  her. Område 2: sleep-kaldet og UART-drænet før sleep (§4.1). _(Område 5: IR-sampling er
+  kandidat, som i [D333].)_
 - **NFR-012:** Alle I²C-transaktioner har eksplicit timeout og returnerer en statuskode
   (I2C-001/005; legacy: #3).
 - **NFR-013:** Watchdog er DMT, tændt fra software med BTL 1.0's config
   (`FDMTEN=OFF`, `DMTCNT=DMT31`, `DMTINTV=WIN_127_128`; WDT-001/002). Detaljer følger
-  [D333] NFR-013 og fastlægges under område 2. Legacy: WDT og DMT er slået fra
+  [D333] NFR-013. Følgerne af sleep i standby står i §4.1. Legacy: WDT og DMT er slået fra
   (`initialization.c:87,90`).
 - **NFR-014:** Én fælles tidskilde `NowMs()` baseret på `SYS_TIME_Counter64Get()` eller
   tællerdifferencer (MCC-006). Legacy har flere `millis()`-varianter, der wrapper (#3).
@@ -150,7 +150,7 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 | Område | Afsnit | Legacy-filer | Status |
 |---|---|---|---|
 | 1 | §3.2 Eksekveringsmodel | `main.c`, `app.c`, `app.h`, `tasks.c` | Gennemgået 2026-11-27 |
-| 2 | §4.1 Power | `On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c` | Legacy beskrevet 2026-11-27; §9/§10 venter |
+| 2 | §4.1 Power | `On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c` | Gennemgået 2026-11-27 |
 | 3 | §4.2–4.3 Input, level, level match | `Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c` | |
 | 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | |
 | 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | |
@@ -239,7 +239,8 @@ tænder igen, indtil det har været inaktivt (`:170-195`, `:225-231`).
   - Displayet tændes direkte, uden tænd-sekvensen.
   - Skærmen er `leftPowerMissingScreen`, hvis venstre forsyning mangler, og ellers
     `wrongAcVoltageScreen` (`ac_check.c:131-146`, `app.c:51-65`).
-  - ON/STBY-LED'en blinker med 1 s periode.
+  - ON/STBY-LED'en skifter tilstand hvert 1000 ms, dvs. 2 s periode ([D333] FR-108 skriver
+    1 Hz).
   - Spændingen tjekkes igen hvert 200 ms. Når den matcher, laves et software-reset
     (`ac_check.c:126-174`).
   - Bootloader-aktivering virker fortsat (`ac_check.c:152-154`).
@@ -249,7 +250,70 @@ tænder igen, indtil det har været inaktivt (`:170-195`, `:225-231`).
   USB-kommandofilen (`app_usb_cmd.c:157`, `:345`). Er feltet ikke sat, bruges HIGH, og der
   skrives intet til EEPROM (`On_Off_Control.c:1207-1209`, `voltageSetting.h:26-28`).
 
-_Krav til 2.0 skrives, når kandidaterne til §9 og §10 fra område 2 er placeret._
+**Krav til 2.0.** Mekanismen er [D333]'s `svc_power` (§8): en tick-baseret state machine med
+tidsstempler, ikke `SYS_TIME`-callbacks. Trin, rækkefølge og tider er Helios' egne.
+
+- **FR-100 (ON-sekvens):** Trinene AC-check og ON1–ON8 udføres i samme rækkefølge og med
+  samme ventetider som i legacy-tabellen ovenfor (§5). Rækkefølgen af relæer og forsyninger
+  er hardwarebeskyttelse og ændres ikke. `#0:01;` sendes i ON7.
+- **FR-101 (stabilisering):** ON5 venter 18 s, eller 23 s, når phono-modulet er monteret og
+  det validerede input er 6. [D333]'s 21/31 s bruges ikke.
+- IR og persistens under opstart fastlægges i område 5 og 7.
+- **FR-105 (OFF-sekvens):** Trinene og deres rækkefølge er som i legacy (§4.1), men tick-
+  baseret.
+  - Der gemmes efter §9.8.
+  - `#0:00;` sendes, og UART'en drænes, før MCU'en går i sleep.
+  - Bagefter følger standby efter FR-120.
+- **FR-106 (hvad der udløser sluk):**
+  - (a) On/off-knap i ON, 20 ms debounce.
+  - (b) IR `KeyOnOff` i ON.
+  - (c) Faldende flanke på 12V-linket i ON og under opstart, 30 ms debounce, uanset hvad der
+    tændte.
+  - (d) Udfald af venstre forsyning: `AC_RESET` lav i 5 × 10 ms, én gang pr. ON-periode
+    (§9.7).
+  - (e) Auto Standby (FR-107).
+
+  Eventuelle fejl-triggere fastlægges i område 4.
+- **FR-107 (Auto Standby):** 1:1 som [D333] FR-107. Nedtællingen løber kun i RUNNING, dvs.
+  fra ON7 er nået og til en OFF-sekvens starter. **Udløber den, mens 12V-linket er aktivt,
+  behandles det som en manuel sluk** (FR-121; beslutning 2026-11-27). [D333] har ikke det
+  tilfælde, for dér ejer U12 12V-linket.
+- **FR-108 (AC-kontrol):** Kører ved hver tænding før ON1 og afgøres ved majoritet af
+  `AC_RESULT` og `AC_RESET` (§9.4).
+  - **Venstre forsyning mangler:** `leftPowerMissingScreen`.
+  - **Spændingen afviger fra settingen:** `wrongAcVoltageScreen`.
+  - **I begge fejltilfælde:**
+    - Displayet tændes direkte, uden tænd-sekvensen, så de analoge trin aldrig tændes.
+    - ON/STBY-LED'en skifter hvert 1000 ms.
+    - Der gentjekkes hvert 200 ms, og der laves et software-reset ved match.
+    - Bootloader-aktivering virker fortsat.
+  - **Ved match:** `SP_RELAY` sættes efter settingen.
+- **FR-111 (spændingssetting):** Ligger i EEPROM, seedes ved første boot (§9.5) og kan
+  omprogrammeres via USB-stick (område 9). Adressen er Helios' eksisterende og fastlægges i
+  område 7.
+- **FR-120 (standby, Helios-specifik):**
+  - **Efter OFF:** deep sleep, vækkes af INT0.
+  - **Efter en manuel sluk med aktivt 12V-link:** IDLE, vækkes af CN på knap og IR.
+  - **Efter opvågning fra deep sleep** træffes boot-beslutningen som i legacy:
+    - 12V-linket er aktivt: ON.
+    - Vækkekilden er ikke `DSINT0`: tilbage i sleep.
+    - Ellers søges der en gyldig årsag (IR `KeyOnOff`, knap eller 12V-link) inden for
+      noise-guarden på 500 ms, som evalueres i hvert tick (§9.6).
+  - **Opvågning fra IDLE** behandles i main-loopet. ISR'en sætter kun et flag (NFR-010).
+- **FR-121 (politik for 12V-linket):**
+  - Et aktivt link (debounced) tænder, hvis det ikke er blokeret.
+  - En faldende flanke slukker (FR-106c).
+  - En manuel sluk (knap, IR eller Auto Standby) med aktivt link blokerer linket, indtil det
+    har været inaktivt. Blokeringen ligger i RAM og overlever IDLE.
+
+Undtagelser fra NFR-011 i område 2: kun selve sleep-kaldet (`POWER_LowPowerModeEnter`) og
+drænet af UART'en før sleep. Al anden venten i ON og OFF er tilstande.
+
+Følger for NFR-013:
+- DMT tæller ikke i IDLE og deep sleep.
+- Efter IDLE fortsætter main-loopet og clearer DMT som normalt.
+- Efter deep sleep starter boot-stien forfra.
+- Boot-linjen (HIL-003) skal skelne deep-sleep-opvågning fra POR og DMT-reset.
 
 ### 4.2 Input-styring
 
@@ -308,7 +372,7 @@ _Område 9._
 | TIM-xx | ON-trin 6 / 7 | 1000 / 500 ms | `On_Off_Control.c:1062`, `:1092` |
 | TIM-xx | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
 | TIM-xx | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
-| TIM-xx | AC-mismatch: LED-blink / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
+| TIM-xx | AC-mismatch: LED skifter / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
 
 _Udvides under hvert område. Numre tildeles, når listen er komplet._
 

@@ -19,23 +19,21 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    de 8 fund placeret, legacy-afsnittet i §4.10 er skrevet, og kravene til skærmkatalog og skift
    (FR-800–812, FR-880–882) er skrevet, og det samme er SYSTEM ERROR (FR-830) og Auto Standby
    (FR-815, FR-816), Pickup og AV (FR-850, FR-855, FR-861) og GUI-001 (§3.3, §9.39)
-   (2026-11-27, se log). **Område 6 er gennemgået.** Område 7 er læst, og fund 1 er placeret
-   (§9.40). Fund 2–7 venter (se log "område 7, læst").
+   (2026-11-27, se log). **Område 6 er gennemgået.** **Område 7 er gennemgået**
+   (§4.11, §9.40–9.43, se log "område 7, læst"). Næste område er 8 (UART-testinterface, §4.12).
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
    - **Nyt i D333 siden 2026-10-28, som Helios skal tage stilling til:** §9.38 gammel ACK
      fjernes før kommandofilen (#417, §4.14). FR-861/§9.42 og FR-850/§9.43 er afgjort
      (Helios §9.37, §9.38), og §9.40 og E31 er afgjort med FR-830.
-   - **Område 7:** Adresserne `0x0B` (pickup) og `0x06` (AV) er bekræftet. Ugyldige værdier,
-     også `avInp` og IR-kilden, giver default (§9.41).
    - Foreslå §9.35 (baglys på overlayet) og §9.36 (menu-exit ved annullering) tilbage til D333.
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
      UART-hændelseslinjen for IR fastlægges i område 8.
-   - **Åbent fra område 4 og 6:** §11.6 har fem hardwarespørgsmål til Michael (U26 bit 1.2,
+   - **Åbent fra område 4, 6 og 7:** §11.6 har seks hardwarespørgsmål til Michael (U26 bit 1.2,
      autoincrement på DAC-modulets expander, polariteten på green bias, udgangsniveauet ved
-     høj-Z på U16/U20 og om standby er en POR af expanderne). FR-403 og FR-406
+     høj-Z på U16/U20, om standby er en POR af expanderne, og om EEPROM'en er en 24LC04B). FR-403 og FR-406
      afhænger af autoincrement. Poll-intervallet for DAC-status i FR-403 er ikke fastlagt.
 
    Arbejdsgang:
@@ -88,6 +86,11 @@ Persistens er læst i `eeProm_Functions.c` (uændret siden `v1.0`) og [D333] PRD
   6. Fejlstatus på 0x51 er død. Skal FR-830 gemme noget, som [D333] gør på 0x100?
   7. Adresse til Auto Standby. Ledigt: 0x0D–0x0F (1.0's restore skriver 0), 0x78–0x7F og
      0x87–0xFF (aldrig skrevet).
+     **Placeret: 0x0D i Page0** (0, 0xFF og over 10 betyder fra).
+- Fund 6 var allerede afgjort af §9.17, som fjerner skelettet. 0x51 er reserveret.
+- **§4.11 er skrevet** med legacy, layouttabellen (FR-1000), FR-1001/1002/1010/1011/1012 og
+  §9.40–9.43. De 11 henvisninger til "område 7" er erstattet af adresser. Chipspørgsmålet står i
+  §11.6. **Område 7 er gennemgået.**
 
 ### 2026-11-27 (område 6, GUI-001)
 

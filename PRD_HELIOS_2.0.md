@@ -337,8 +337,8 @@ tidsstempler, ikke `SYS_TIME`-callbacks. Trin, rækkefølge og tider er Helios' 
   er hardwarebeskyttelse og ændres ikke. `#0:01;` sendes i ON7.
 - **FR-101 (stabilisering):** ON5 venter 18 s, eller 23 s, når phono-modulet er monteret og
   det validerede input er 6. [D333]'s 21/31 s bruges ikke.
-- IR under opstart: kun sluk (12/124) fra ON4 (§9.22). Persistens under opstart fastlægges i
-  område 7.
+- IR under opstart: kun sluk (12/124) fra ON4 (§9.22). Under opstart skrives der ikke til
+  EEPROM (FR-1002, §4.11).
 - **FR-105 (OFF-sekvens):** Trinene og deres rækkefølge er som i legacy (§4.1), men tick-
   baseret.
   - Der gemmes efter §9.8.
@@ -369,8 +369,8 @@ tidsstempler, ikke `SYS_TIME`-callbacks. Trin, rækkefølge og tider er Helios' 
     - Bootloader-aktivering virker fortsat.
   - **Ved match:** `SP_RELAY` sættes efter settingen.
 - **FR-111 (spændingssetting):** Ligger i EEPROM, seedes ved første boot (§9.5) og kan
-  omprogrammeres via USB-stick (område 9). Adressen er Helios' eksisterende og fastlægges i
-  område 7.
+  omprogrammeres via USB-stick (område 9). Adressen er Helios' eksisterende, `0x86`
+  (§4.11).
 - **FR-120 (standby, Helios-specifik):**
   - **Efter OFF:** deep sleep, vækkes af INT0.
   - **Efter en manuel sluk med aktivt 12V-link:** IDLE, vækkes af CN på knap og IR.
@@ -472,7 +472,7 @@ Inputs, relæbits og tider er Helios' egne.
   - Legacy's blokerende ventetid på 20 ms bliver en tilstand.
 - **FR-203 (DAC-sekvens ved digitalt skift):** står i §4.6.
 - **FR-204 (−6 dB):** Relæet er til på input 4 og 5.
-- **FR-206 (persistens):** Input gemmes efter §9.8. Adressen fastlægges i område 7.
+- **FR-206 (persistens):** Input gemmes efter §9.8 på adressen `0x00` (§4.11).
 - **FR-207 (valg):**
   - Input vælges via touch, IR og UART (område 8).
   - Op/ned wrapper ikke og springer input 6 over, hvis phono-modulet mangler.
@@ -825,7 +825,7 @@ tabeller og tider er Helios' egne.
     filter 4.
   - Filtret gælder USB-PCM og S/PDIF og kan ikke vælges ved USB-DSD.
   - Det vælges på skærmen Digital Setup og via IR (§10.2).
-  - Det gemmes, når skærmen forlades. Adressen fastlægges i område 7.
+  - Det gemmes, når skærmen forlades, på adressen `0x07` (§4.11).
 - **FR-402 (DSD-lavpas og digital gain):**
   - DSD-lavpas er bit 2 i DAC-modulets expander. Det vises og kan vælges kun ved USB-DSD.
   - Digital gain er FR-302 (+6 relæ-trin). Der skrives ikke til noget DAC-register.
@@ -857,8 +857,8 @@ tabeller og tider er Helios' egne.
 - **FR-410 (green bias, Helios-specifik):**
   - Trinnet skrives til U26 byte 2, bit 4–6, med mønstrene fra §4.6 (polaritet: §11.6).
   - Det beregnes ud fra `curLvl` (§10.3), og på et AV-input ud fra 66 (§9.18).
-  - Tærskeltabellen vælges med settingen 0 eller 1 på skærmen Green Bias. Adressen
-    fastlægges i område 7.
+  - Tærskeltabellen vælges med settingen 0 eller 1 på skærmen Green Bias og gemmes på
+    adressen `0x0C` (§4.11).
   - Trinnet opdateres ved hver volumenændring og i ON4. ON1 sætter OFF-mønstret.
 
 ### 4.9 IR-fjernbetjening
@@ -984,7 +984,8 @@ står i klammer.
   - `wakeUp()` kaldes også fra INT0-ISR'en (§3.2).
 - **Andre kommandoer i standby:** `PollIrForOn` sender hver frame gennem hele
   `handleIrCommand`. Volumen og inputvalg ændrer derfor `curLvl` og `curInp` i standby
-  (udledt). ON4 sætter `curLvl = startLvl` (§4.1). Om `curInp` overskrives, tjekkes i område 7.
+  (udledt). ON4 sætter `curLvl = startLvl` (§4.1). ON4 genlæser `curInp` fra EEPROM, så
+  et input valgt i standby overskrives (`On_Off_Control.c:932`, `:940`, kode læst).
 - **Under opstart:** `wakeUpFlg` ryddes i ON4 (`On_Off_Control.c:946`), og derefter blokerer
   `handleIrCommand` kun i menuen (`:716-721`). IR-kommandoer behandles derfor i ON5–ON7
   (udledt). [D333 ignorerer IR under hele tænd-sekvensen (D333 FR-102, FR-703).]
@@ -998,7 +999,7 @@ står i klammer.
   gemmes først i EEPROM, når der trykkes "tilbage til menu" (`Screen_IR_Source_Setup.c:13-33`,
   `eeProm_Functions.c:333-336`).
 - Restore Settings sætter pinden efter `irSource` (`Screen_Restore_Settings.c:44-47`).
-  Standardværdien fastlægges i område 7.
+  Standardværdien er front (`irSource = 1`, `eeProm_Functions.c:404`).
 - [D333 FR-705 har samme skærm og samme kodning, men gemmer valget straks (§9.27).]
 
 **Krav til 2.0.** Mekanismen er [D333]'s `drv_ir_rc5`, `app_ir` og `gui_remote_view` (§8).
@@ -1037,7 +1038,8 @@ Numrene følger [D333] FR-700–705. FR-706 og FR-707 er Helios-specifikke.
   - På action-skærmen udføres handlingen direkte.
   - **Display (15):** Fra action eller simple view vises `displaySimpleView` i 3 s med
     retur til forrige skærm. På `displaySimpleView` cykler `dispMode` 0–5, og timeren
-    genstartes. `dispMode` gemmes ved retur (område 7).
+    genstartes. `dispMode` gemmes ved retur via
+    `saveDisplayFlg` (§4.11).
 - **FR-705 (IR-kilde):**
   - `IR_SOURCE` RH11: 1 = front, 0 = bag, standardværdi front.
   - Sættes fra EEPROM 0x05 ved opstart og ved Restore Settings.
@@ -1192,7 +1194,7 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
 - **FR-815 (`autoStandby`-menuskærm):** Følger [D333] FR-815.
   - Valget er OFF eller 1–10 t i trin på 1 t. Default er OFF.
   - +/− giver tryk-hold-gentagelse som FR-304 (§9.34).
-  - Værdien gemmes, når skærmen forlades. Adressen fastlægges i område 7 (§4.11).
+  - Værdien gemmes, når skærmen forlades, på adressen `0x0D` (§4.11).
   - Menupunktet er altid synligt. Det står nederst til venstre i `mainMenuScreen`, på samme række
     som Exit, og de 10 eksisterende knapper flytter sig ikke (beslutning 2026-11-27).
 - **FR-816 (`autoStandbyWarning`-overlay):** Følger [D333] FR-816 med `T_AUTOSTBY_WARN` = 30 s
@@ -1215,9 +1217,9 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
     i 1.0.
   - `SvcSettings_Load` erstatter en ugyldig værdi med MM i RAM, så relæ og menu stemmer
     ([D333] §9.43). Byten rettes først ved næste gemning.
-  - Restore bevarer valget (§10.4). Adressen `0x0B` bekræftes i område 7 (§4.11).
+  - Restore bevarer valget (§10.4). Adressen er `0x0B` (§4.11).
 - **FR-855 (AV-skærm):** Input 3 og input 4 er toggles, og None rydder begge og er deaktiveret,
-  når intet er valgt. Valget gemmes, når skærmen forlades. Adressen `0x06` bekræftes i område 7.
+  når intet er valgt. Valget gemmes, når skærmen forlades. Adressen er `0x06` (§4.11).
   Lydadfærden står i FR-355.
 - **FR-861 (AV i level match, beslutning 2026-11-27):** Følger [D333] FR-861 (§9.38).
   - Et AV-input (3 eller 4) vises dæmpet med widget-alpha, uden nyt asset. Det kan ikke vælges,
@@ -1264,7 +1266,70 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
 
 ### 4.11 Persistens
 
-_Område 7._ EEPROM-layout fra 1.0 og ledige adresser til Auto Standby står i #1.
+_Område 7 (beslutning 2026-11-27)._
+
+**Legacy (kode læst, `eeProm_Functions.c`, uændret siden `v1.0`).**
+
+- **Chip:** I²C2 med 0x50 og 0x51 og 16 B pages (`:17-25`). Det ligner en 24LC04B som i [D333],
+  men det er ikke bekræftet (§11).
+- **Indlæsning:** Page0 og level match læses i ON4, to gange (`On_Off_Control.c:932`, `:940`), og
+  i standby-vejen (`:622`). Et input valgt med IR i standby bliver derfor overskrevet af det gemte.
+- **Første boot:** Er `curInp > 11`, skrives defaults (`On_Off_Control.c:934`). En tom EEPROM
+  giver 0xFF og rammer altid den vej.
+- **Gemmetidspunkter:**
+  - Hver indstilling gemmes, når dens skærm forlades.
+  - Display gemmes via `saveDisplayFlg` i superloopen (`app.c:171`), og det gælder også
+    IR-overlayet (`IR_control.c:112`).
+  - Ved sluk gemmes input og digital (`On_Off_Control.c:1106-1107`).
+  - SN gemmes ved SN-skærmen og UART.
+- **Afvigelser i 2.0:** §9.40 (boot-tæller), §9.41 (ugyldig værdi), §9.42 (defaults og
+  fabriksreset) og §9.43 (driver).
+
+**FR-1000 (layout, Helios-specifik):** Layoutet fra 1.0 SKAL bevares, så enheder i marken
+beholder deres indstillinger. Auto Standby er den eneste nye byte.
+
+| Adresse (0x50) | Indhold | Default | Reference |
+|---|---|---|---|
+| 0x00 | `curInp` (1–11) | 1 | FR-206 |
+| 0x01–0x03 | `startLvl`, `maxLvl`, `balance` | 0, 84, 6 | FR-320 |
+| 0x04 | `dispMode` (bit 0–6) og simple view (bit 7) | modeDim + simple view | §4.10 |
+| 0x05 | `irSource` (1 = front, 0 = bag) | 1 | FR-705 |
+| 0x06 | `avInp` (bit 0 = input 3, bit 1 = input 4) | 0 | FR-855 |
+| 0x07 | `pcmFilter` (1–7) | 4 | FR-401 |
+| 0x08 | reserveret (`dsdFilter` i 1.0, §9.17). 2.0 læser og skriver den ikke | (3) | §9.17 |
+| 0x09–0x0A | `dsdLpFilter`, `digiGain` | 0, 1 | FR-402 |
+| 0x0B | pickup | MM (§9.37). Restore bevarer (§10.4) | FR-850 |
+| 0x0C | green bias-tabel (0 og 1) | 0 | FR-410 |
+| 0x0D | **Auto Standby**: 0 = fra og 1–10 = timer. 0xFF og over 10 = fra | 0 | FR-815 |
+| 0x0E–0x0F | reserveret. 1.0's defaults skriver 0 | 0 | |
+| 0x10–0x15 | level match for input 1–6 (0–8) | 0 | FR-860 |
+| 0x16–0x1F | reserveret. 1.0's defaults skriver 0 | 0 | |
+| 0x20–0x77 | 11 inputnavne à 8 B, `0x20 + 8 × (n − 1)` | default-navne | §4.10 |
+| 0x78–0x7F | ledig, aldrig skrevet af 1.0 | | |
+| 0x80–0x83 | serienummer, ét ciffer pr. byte | | §4.10 |
+| 0x84–0x85 | boot-tæller, 16 bit LE | | §9.40 |
+| 0x86 | spændingssetting (0 = LOW, 1 = HIGH, 0xFF = ikke sat) | seedes (§9.5) | FR-111 |
+| 0x87–0xFF | ledig, aldrig skrevet af 1.0 | | |
+| 0x51:0x00 | fejlstatus i 1.0, aldrig kaldt. Reserveret, og 2.0 bruger den ikke | | §9.17 |
+
+- **Auto Standby på 0x0D:** Byten læses og skrives med Page0. En enhed fra marken har 0 (hvis
+  1.0's restore er kørt) eller 0xFF, og begge betyder fra. 1.0 læser ikke byten, så en
+  nedgradering er sikker. [D333] har den på 0x060 uden for Page0, fordi D333's Page0 er fuld.
+- **Kommentaren i 1.0** (`eeProm_Functions.c:503`) siger, at spændingssettingen ligger på 0x0D.
+  Koden bruger 0x86 (`:32`).
+
+**FR-1001 og FR-1002:** Som [D333] (§9.43).
+
+**FR-1010 (første boot):** En tom EEPROM (`curInp > 11`, som legacy) skriver defaults efter
+tabellen (§9.42).
+
+**FR-1011 (fabriksreset):** Gælder både menu og UART og følger [D333] FR-1011 (§9.42).
+
+**FR-1012 (gemmetidspunkter):**
+- Hver indstilling gemmes ved exit fra sin menuskærm, som legacy. Det gælder volumen, display,
+  Auto Standby, digital, level match, pickup, AV, IR-kilde og navn.
+- Ved sluk gemmes input og digital.
+- Der skrives ikke under opstart (FR-1002).
 
 ### 4.12 UART-testinterface
 
@@ -1524,7 +1589,7 @@ adfærd, er markeret **(adfærd)**.
       og grenen i `updateActionScreen` (`:1415-1423`).
     - `dsdFilter`: `dacSetDSDFilter()` og begge knapper er tomme (`Dac_Control.c:686-689`,
       `Screen_Digital_Setup.c:63-64`). EEPROM-byte 0x08 bliver **reserveret**. 2.0 læser og
-      skriver den ikke, og layoutet fra 1.0 bevares (område 7).
+      skriver den ikke, og layoutet fra 1.0 bevares (§4.11).
     - Fejlstatus-skelettet: `errorCheckFlg` (`On_Off_Control.c:974`, `:1110`),
       `saveErrorStatus` og `getErrorStatus` (`eeProm_Functions.c:371-386`) og de
       udkommenterede fejlbits (`MB_IOexp_U26_Control.c:678-679`).
@@ -1766,6 +1831,7 @@ adfærd, er markeret **(adfærd)**.
       | dsdLpFilter, digiGain, greenBias | 0 og 1 | 0, 1, 0 |
       | pickup | §9.37 | MM |
       | inpSens[1..6] | 0–8 | 0 |
+      | Auto Standby (0x0D) | 0–10 | 0 (fra) |
 
     - **Forskel fra [D333]:** [D333] tolker en irSource uden for front som bag og avInp som en
       bitmaske uden validering (`app_settings.c:36`, `:73`).
@@ -1861,6 +1927,8 @@ _Udfyldes under område 2–9._
      Det kan måles på bænken ved at holde SDA3 til GND, som [D333] gjorde.
    - _Område 6 (FR-830):_ Mister U26, U16 og U20 forsyningen i standby, så en tænding er en POR?
      Sidder EEPROM'en på standby-rail'en? Det afgør, om "switch off and on" heler E1x og E2x.
+   - _Område 7 (§4.11):_ Er EEPROM'en en 24LC04B (512 B, 16 B pages, blokkene 0x50 og 0x51)?
+     Koden peger på det (`eeProm_Functions.c:17-25`), men stykliste og diagram er ikke læst.
 
 ---
 

@@ -54,7 +54,8 @@ _Udfyldes under område 2–9 (busser, adresser, GPIO, interrupts)._
 | Toolchain | XC32 4.60, MPLAB X v6.25, DFP `PIC32MZ-DA_DFP` 1.5.231 |
 | Forsyning i standby | MCU'en er forsynet i standby og ligger i deep sleep eller IDLE (§4.1). Forskel fra [D333], hvor U3 mister forsyningen. |
 | INT0 | Udgang af en AND-gate med indgange fra on/off-knap, IR og 12V-link (bekræftet af Michael 2026-11-27). Vækker fra deep sleep på faldende flanke (`INT0EP` = 0, `plib_evic.c:57`). Når 12V-linket er aktivt, holdes udgangen lav, og der kommer ingen flanke (`On_Off_Control.c:1153`). Indgangenes polaritet er udledt af koden og ikke tjekket i diagrammet. |
-| GPIO ind (power) | `ON_OFF_BUTTON` RJ15 (CN, høj = trykket), `LINK_12V` RB4 (aktiv lav), `IR_RC5` RH11 (CN), `AC_RESULT` RE8 (1 = `VoltageLow`, 0 = `VoltageHigh`), `AC_RESET` RC4 (høj = venstre forsyning til stede), `ACTIVATE_BOOTLOADER` (CN) (`plib_gpio.h`, `ac_check.h:39-49`) |
+| GPIO ind (power) | `ON_OFF_BUTTON` RJ15 (CN, høj = trykket), `LINK_12V` RB4 (aktiv lav), `IR_RC5` RH3 (CN; kommentaren i `On_Off_Control.c:1162` siger fejlagtigt RH11), `AC_RESULT` RE8 (1 = `VoltageLow`, 0 = `VoltageHigh`), `AC_RESET` RC4 (høj = venstre forsyning til stede), `ACTIVATE_BOOTLOADER` (CN) (`plib_gpio.h`, `ac_check.h:39-49`) |
+| GPIO ud (IR) | `IR_SOURCE` RH11 vælger IR-modtager: 1 = front, 0 = bag (`plib_gpio.h:190-197`, `app.h:154-155`) |
 | GPIO ud (power) | `DPS_RELAY_ON_OFF` RG8, `SOFT_START_ON_OFF` RG7, `SP_RELAY` RB2 (sat = `VoltageLow`), `ONSTBY_LED`, `GAD_LOGO`, `GLCD_DISP_ON_STBY`, `DRV_TOUCH_PIN_RESET` (`plib_gpio.h`, `ac_check.c:84-87`) |
 
 ---
@@ -793,7 +794,142 @@ tabeller og tider er Helios' egne.
 
 ### 4.9 IR-fjernbetjening
 
-_Område 5._
+_Område 5._ [D333]-løsningen er `drv_ir_rc5`, `app_ir` og `gui_remote_view` (§8). Den er
+bænkbevist (D333 #56, #162, #280 del B), men ikke i drift i marken. Forskelle fra [D333]
+står i klammer.
+
+**Legacy: hardware og dekoder (kode læst).**
+
+- **Pins:** `IR_RC5` er RH3 med CN-interrupt (`plib_gpio.h:215-219`). Signalet er
+  TSOP-demoduleret: hvile = 1, burst = 0 (`IR_control.c:14-17`). `IR_SOURCE` RH11 vælger
+  modtager (se IR-kilde nedenfor).
+- **Interrupt:** CN-handleren tjekker, at linjen er lav, og sætter kun et flag:
+  `s_irRxPending` i ON og `s_irWakePending` i standby (`IR_control.c:66-77`). Den kører på
+  alle flanker (CN i mismatch-tilstand, `plib_gpio.c:104`), også under dekodningen.
+- **Dekodning i main-loopet:** `ServiceIr()` kaldes først i `APP_Tasks` (`app.c:163`,
+  `IR_control.c:79-89`) og dekoder blokerende (`irDecodeRawCode`, `IR_control.c:448-492`):
+  1. Den venter på lav linje i op til 40 000 × 1 µs (`RC5_TIMEOUT_US`).
+  2. Den antager, at den står på den faldende flanke midt i S1, og venter 1333 µs
+     (889 + 444).
+  3. Den læser 13 bits (S2…C0) med to samples pr. bit med 889 µs imellem.
+  4. Et ugyldigt Manchester-par giver yderligere 25 ms blokering og en kasseret frame
+     (`:486`).
+
+  Selve læsningen tager ca. 24 ms. Hvor lang tid der går fra flanken til `ServiceIr()`,
+  afhænger af main-loopet. Koden kompenserer ikke for den latens (udledt, ikke målt).
+  [D333: sampling i CN-ISR'en på faldende flanke med interrupts slået fra, 448 µs offset og
+  910 µs halvbit (D333 TIM-23), `CONVENTION-EXCEPTION`.]
+- **Frame-felter** (`irReceive`, `IR_control.c:853-874`): bit 13 = S1, bit 12 = S2 (felt),
+  bit 11 = toggle, bit 10–6 = system, bit 5–0 = kommando. Felt = 0 giver kommando + 64
+  (RC5X). [D333 afkoder RC5X, men kasserer kommandoer over 63.]
+- **System:** Kun system 16 behandles (`:689`, `:723`).
+- **IR under volumenskrivning:** CN-interruptet er slået fra under make-before-break
+  (`Level_Control.c:126`, `:165`). 2.0 har ingen IR-guard der (§9.12).
+
+**Legacy: toggle og gentagelse (kode læst; `IR_control.c:682-808`).**
+
+- **Nyt tryk:** En kommando behandles kun, når togglebitten er skiftet. Undtagelser:
+  - volumen op og ned (altid),
+  - `com_power_on` i standby og `com_power_off` i ON,
+  - `com_on_off` i standby.
+- **Hold på volumen:**
+  1. Første frame giver ét trin.
+  2. Næste frame med samme kommando og samme toggle blokerer main-loopet i 200 ms
+     (`CORETIMER_DelayMs(200)`, `:795`) og giver intet trin.
+  3. Derefter giver hver modtaget frame ét trin, indtil togglebitten skifter.
+
+  RC5 gentager en frame hver ca. 114 ms (RC5-standarden, ikke Helios-koden). Frames, der
+  ankommer under blokeringen, tabes (udledt). [D333: 200 ms fra sidste accept, ikke-blokerende
+  (D333 FR-702).]
+- **Død kode:** `ignoreToggleFlg` sættes aldrig til 1, og `ignoreToggleCnt` tælles aldrig op,
+  så `ignoreToggleCnt <= 100` er altid sand (`:21-23`, `:685`, `:700`). `irOneStepVol`
+  sættes, men læses aldrig.
+
+**Legacy: kommandoer (kode læst; `app.h:101-113`, `IR_control.c:115-426`, `:811-839`).**
+
+| Kode | Kommando | Betingelse og virkning |
+|---|---|---|
+| 0 | Input 10 | Kun med DAC-modul (`maxInp == 11`, `:151-154`) |
+| 1–11 | Direkte inputvalg | `1 ≤ kode ≤ maxInp`. Kode 6 kun med phono, men `irInputChangeFlg` sættes også uden (`:146-150`) |
+| 12 | `com_on_off` | ON: sluk (`RequestPowerOff_FromIR`). Standby: tænd (`KeyOnOff`) |
+| 13 | Mute | Kun når `curLvl > 0` eller AV-input. Sætter `muteToggleFlg`, som `irToggleMute()` udfører i main-loopet (`MB_IOexp_U26_Control.c:304-315`) |
+| 15 | Display | Se Display-kommandoen nedenfor |
+| 16 / 17 | Volumen op / ned | Ét trin. Ikke under input-mute og ikke på AV. Op ved niveau 0 eller mute rydder `skipUnmuteFlg`, ned sætter det (§4.3) |
+| 21 | Monitor | Defineret, men ingen handling (`default`) |
+| 32 / 33 | Input op / ned | Ingen wrap. Input 6 springes over uden phono |
+| 36 | Gain | Kun på digitalt input (`curInp ≥ 7`). Skifter `digiGain` og kalder `dacSetGain()` |
+| 48 | DSD-LP | Kun input 7 med DSD. Skifter `dsdLpFilter` (`reqApplyDsdLp`) |
+| 50 | Filter | Input 7 uden DSD eller input ≥ 8. `pcmFilter` cykler 1–7 (`reqApplyPcmFilter`) |
+| 123 | Diskret tænd (RC5X) | Kun i standby |
+| 124 | Diskret sluk (RC5X) | Kun i ON |
+
+- **Remote view:** Kommandoerne 0–11, 13, 16/17 og 32/33 ignoreres, mens
+  `remoteViewDelayFlg` er sat, dvs. mens et IR-overlay vises.
+- **Menu:** I menuen behandles kun 12 og 124 (`:716-730`).
+- **Efter en accepteret kommando** genstartes dim-timeren (T_DIM) og på action-skærmen også
+  T_ACTIONVIEW, og intensiteten gendannes (`IrRefreshDisplayActivityForCurrentScreen`,
+  `:513-541`). Det sker på action, simple view og de fire overlay-skærme.
+
+**Legacy: overlays fra simple view (kode læst; `IR_control.c:292-426`).**
+
+- **Filter, DSD-LP og Gain:** På simple view viser første tryk kun overlayet
+  (`filterSimpleView`, `dsdLpSimpleView`, `dacGainSimpleView`) i 3 s og ændrer intet. Et tryk
+  på et andet skærmbillede, også overlayet selv, ændrer værdien. Efter 3 s vender
+  `remoteViewDelay_Callback` tilbage til simple view, hvis den er slået til (`:91-97`).
+  Timeren genstartes ikke af flere tryk.
+- **Eksklusivt overlay:** Står et af de tre overlays fremme, ignoreres de to andre
+  overlay-kommandoer (`:655-680`, `:742-746`).
+- **Display (15):** Udenfor menu:
+  - På action eller simple view vises `displaySimpleView` i 3 s. Derefter vender
+    `remoteViewDispDelay_Callback` tilbage til forrige skærm og sætter `saveDisplayFlg`
+    (`:99-113`).
+  - På `displaySimpleView` cykler `dispMode` 0–5, og 3 s-timeren genstartes. Widgetten
+    skrives direkte fra main-loopet (`:343-344`).
+- **UI-skift** sker via `reqUiAction` og `handleUIRequests` (`app.c:73-142`).
+  Callbacken `remoteViewDispDelay_Callback` kalder `SYS_TIME_TimerDestroy` i ISR (§3.2).
+
+**Legacy: display slukket eller dæmpet (kode læst; `IR_control.c:559-604`, `:734-788`).**
+
+- Tilstanden afledes af `dispSleepActiveFlg` og `dispMode` (`modeDim`, `modeOff`).
+  `dispSleepActiveFlg` sættes, når dim-timeren udløber (`screen_Action.c:356`).
+- **Slukket display:**
+  - 12 og 124 udføres uden at tænde baglyset.
+  - Filter, DSD-LP og Gain på en simple-lignende skærm behandles normalt, så på simple view
+    vises overlayet. Displayet tændes forsinket via skærmskiftet (`irDeferredDisplayOnFlg`,
+    `app.c:79-106`).
+  - Alle andre kommandoer tænder kun displayet og sluges. En wake-guard sluger derefter alle
+    frames med samme toggle (hold). Først et nyt tryk udføres.
+- **Dæmpet display:** Displayet tændes, og kommandoen udføres.
+- **Død kode:** `isImmediateWhenDisplayOff`, `isDeferredUiWakeCommand`, `isVolumeCommand`,
+  `irActionScreenDisplayTiming` og `irSimpleViewScreenDisplayTiming` kaldes ingen steder.
+
+**Legacy: IR i standby og under opstart (kode læst).**
+
+- **CN-interruptet** slås til i ON4 (`On_Off_Control.c:945`) og fra i OFF-sekvensen (`:1140`).
+  Efter en manuel sluk med aktivt 12V-link slås det til igen før IDLE, så IR kan vække (`:1165`).
+- **Opvågning:** Er IR-linjen lav, poller `wakeUp()` IR i op til 500 ms efter `KeyOnOff`
+  (`PollIrForOn`, `IR_control.c:42-64`, `On_Off_Control.c:711-738`).
+  - `KeyOnOff` sættes af 12 og 123.
+  - Uden gyldig kode går enheden i sleep igen.
+  - `wakeUp()` kaldes også fra INT0-ISR'en (§3.2).
+- **Andre kommandoer i standby:** `PollIrForOn` sender hver frame gennem hele
+  `handleIrCommand`. Volumen og inputvalg ændrer derfor `curLvl` og `curInp` i standby
+  (udledt). ON4 sætter `curLvl = startLvl` (§4.1). Om `curInp` overskrives, tjekkes i område 7.
+- **Under opstart:** `wakeUpFlg` ryddes i ON4 (`On_Off_Control.c:946`), og derefter blokerer
+  `handleIrCommand` kun i menuen (`:716-721`). IR-kommandoer behandles derfor i ON5–ON7
+  (udledt). [D333 ignorerer IR under hele tænd-sekvensen (D333 FR-102, FR-703).]
+
+**Legacy: IR-kilde (Helios-specifik; kode læst).**
+
+- `IR_SOURCE` sættes høj i `initAmp`, derefter til EEPROM-værdien fra adresse 0x05 uden
+  validering (`On_Off_Control.c:558`, `:625-628`, `eeProm_Functions.c:213`). Enhver værdi
+  ≠ 0 giver front.
+- Skærmen IR Source har to knapper, front og bag. Valget lægges straks ud på pinden, men
+  gemmes først i EEPROM, når der trykkes "tilbage til menu" (`Screen_IR_Source_Setup.c:13-33`,
+  `eeProm_Functions.c:333-336`).
+- Restore Settings sætter pinden efter `irSource` (`Screen_Restore_Settings.c:44-47`).
+  Standardværdien fastlægges i område 7.
+- [D333 har ingen IR-kilde.]
 
 ### 4.10 GUI
 
@@ -844,6 +980,10 @@ _Område 9._
 | TIM-xx | `T_SCREENSWAP` | 300 ms | `app.h:86` |
 | TIM-xx | Debounce on/off-knap og 12V-link | 20 ms | `On_Off_Control.c:277`, `:743`, `:760` |
 | TIM-xx | IR-poll-vindue ved opvågning | 500 ms | `IR_control.c:34` |
+| TIM-xx | RC5: offset fra flanke / halvbit / ventetid på burst (D333 TIM-23: 448 / 910 µs) | 1333 / 889 µs / 40 ms | `IR_control.c:444-467` |
+| TIM-xx | RC5: blokering efter Manchester-fejl | 25 ms | `IR_control.c:486` |
+| TIM-xx | IR-volumen: forsinkelse før gentagelse (D333 FR-702: 200 ms) | 200 ms (blokerende) | `IR_control.c:795` |
+| TIM-xx | IR-overlay og display-view (D333 TIM-18: 3 s) | 3000 ms | `IR_control.c:309`, `:361` |
 | TIM-xx | Noise-guard ved opvågning | 500 ms | `On_Off_Control.c:16` |
 | TIM-xx | Poll af venstre forsyning | 10 ms × 5 samples | `On_Off_Control.c:1255-1256` |
 | TIM-xx | Debounce af 12V-link (faldende flanke) | 30 ms | `On_Off_Control.c:116` |
@@ -899,6 +1039,7 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | DAC-modul: init, digitalt skift, lock-gate, filtre og status | [D333] FR-203, FR-400–406, `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_dac` | Mekanisme og registersekvenser 1:1. Helios' input-numre 7–11 og S/PDIF-Fs fra Helios' tilstandsmaskine (§9.15) | Bænkbevist (D333 #53, Audio Precision, lukket 2026-07-09) |
 | Retry af fejlet digitalt skift | [D333] §9.28, `svc_dac` | 1:1 (§9.19) | Host-verificeret (D333 #234) |
 | Green bias | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] (FR-410) | — |
+| IR: RC5-dekoder, toggle, hold og overlays | [D333] FR-700–704, `drv_ir_rc5`, `app_ir`, `gui_remote_view` | _Afgøres i område 5._ Helios har brug for RC5X (123/124), power og opvågning fra standby samt IR-kilde | Bænkbevist (D333 #56, #162, #280 del B) |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._

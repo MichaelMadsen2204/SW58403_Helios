@@ -51,6 +51,10 @@ _Udfyldes under område 2–9 (busser, adresser, GPIO, interrupts)._
 |---|---|
 | MCU | PIC32MZ2064DAR176, MPLAB Harmony 3, Legato GUI 480×272 (PDA TM4301B) |
 | Toolchain | XC32 4.60, MPLAB X v6.25, DFP `PIC32MZ-DA_DFP` 1.5.231 |
+| Forsyning i standby | MCU'en er forsynet i standby og ligger i deep sleep eller IDLE (§4.1). Forskel fra [D333], hvor U3 mister forsyningen. |
+| INT0 | Udgang af en AND-gate med indgange fra on/off-knap, IR og 12V-link (bekræftet af Michael 2026-11-27). Vækker fra deep sleep på faldende flanke (`INT0EP` = 0, `plib_evic.c:57`). Når 12V-linket er aktivt, holdes udgangen lav, og der kommer ingen flanke (`On_Off_Control.c:1153`). Indgangenes polaritet er udledt af koden og ikke tjekket i diagrammet. |
+| GPIO ind (power) | `ON_OFF_BUTTON` RJ15 (CN, høj = trykket), `LINK_12V` RB4 (aktiv lav), `IR_RC5` RH11 (CN), `AC_RESULT` RE8 (1 = `VoltageLow`, 0 = `VoltageHigh`), `AC_RESET` RC4 (høj = venstre forsyning til stede), `ACTIVATE_BOOTLOADER` (CN) (`plib_gpio.h`, `ac_check.h:39-49`) |
+| GPIO ud (power) | `DPS_RELAY_ON_OFF` RG8, `SOFT_START_ON_OFF` RG7, `SP_RELAY` RB2 (sat = `VoltageLow`), `ONSTBY_LED`, `GAD_LOGO`, `GLCD_DISP_ON_STBY`, `DRV_TOUCH_PIN_RESET` (`plib_gpio.h`, `ac_check.c:84-87`) |
 
 ---
 
@@ -146,7 +150,7 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 | Område | Afsnit | Legacy-filer | Status |
 |---|---|---|---|
 | 1 | §3.2 Eksekveringsmodel | `main.c`, `app.c`, `app.h`, `tasks.c` | Gennemgået 2026-11-27 |
-| 2 | §4.1 Power | `On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c` | |
+| 2 | §4.1 Power | `On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c` | Legacy beskrevet 2026-11-27; §9/§10 venter |
 | 3 | §4.2–4.3 Input, level, level match | `Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c` | |
 | 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | |
 | 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | |
@@ -158,6 +162,94 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 ### 4.1 Power-styring
 
 _Område 2._ Auto Standby (FR-107) beskrives her, jf. #1.
+
+**Legacy: standby-model (kode læst).** Hovedforskellen fra [D333]: MCU'en har forsyning i
+standby.
+
+- **Normal sluk:** MCU'en går i deep sleep og vækkes af INT0 (`On_Off_Control.c:1172-1182`).
+- **Manuel sluk (knap eller IR), mens 12V-linket er aktivt:** MCU'en går i IDLE med CN-wake
+  på knap og IR, fordi INT0 ikke giver en flanke (`:1152-1171`). IDLE beholder RAM, så
+  blokeringen af 12V-linket (`pwrPolicy.link_blocked`) overlever. Efter opvågning fortsætter
+  koden efter `POWER_LowPowerModeEnter` (`:1184-1189`).
+- **Opvågning fra deep sleep er et reset.** Hele boot-stien køres, og `initAmp()` afgør,
+  hvad der skal ske (`:588-630`):
+  1. 12V-linket er aktivt (to samples med 50 ms imellem): ON.
+  2. Vækkekilden er ikke `DSINT0` (fx første nettilslutning): tilbage i sleep.
+  3. Ellers kaldes `wakeUp()`, som leder efter en gyldig årsag: IR-kode `KeyOnOff`
+     (poll i 500 ms), knap (20 ms debounce) eller 12V-link (20 ms debounce, kun hvis det
+     ikke er blokeret). En noise-guard sender enheden tilbage i sleep, hvis der ikke er
+     fundet en årsag inden for 500 ms (`:696-784`).
+- **Følger for genbrug af [D333]:**
+  - D333 har ingen sleep-kode, så standby-mekanismen er Helios-specifik.
+  - D333's reboot-loft (NFR-013) passer, fordi den persistente RAM heller ikke overlever
+    deep sleep. Hver tænding går gennem boot-stien, som på D333.
+  - Reset-årsagen ved en normal tænding er deep-sleep-opvågning og ikke POR.
+  - DMT tæller ikke i IDLE og deep sleep, fordi der ikke hentes instruktioner.
+
+**Legacy: ON-sekvens (kode læst).** Tilstandsmaskine `onOffSekvens` (`:1194-1253`), hvor
+ventetiderne er one-shot `SYS_TIME`-callbacks (`:848-855`):
+
+| Trin | Handling | Venter derefter | Kilde |
+|---|---|---|---|
+| AC-check | Logo tændt. Forventet spænding fra EEPROM; HIGH, hvis feltet ikke er sat. Ved match sættes `SP_RELAY`, ON/STBY-LED tændes, og sekvensen fortsætter. Ved mismatch, se AC-kontrol nedenfor. | — | `:1198-1241`, `ac_check.c:72-124` |
+| ON1 | Green bias fra, `DPS_RELAY_ON_OFF` til, backlight-PWM, touch ud af reset, display til, `startupFlg = 1`, logo blinker hvert 250 ms | 500 ms | `:857-906` |
+| ON2 | `Legato_Initialize()` | 500 ms | `:908-915` |
+| ON3 | Backlight fades ind, `SOFT_START_ON_OFF` til | 1500 ms | `:917-926` |
+| ON4 | EEPROM-værdier (defaults, hvis `curInp > 11`), inputnavne, `curLvl = startLvl`, IR-interrupt til, `powerOnFlg = 1`, init af U20/U16/U26, green bias efter niveau, USB-tændingstæller, boot-tæller i EEPROM | 3000 ms | `:928-970` |
+| ON5 | `errorCheckFlg = 1`, amp-status, moduldetektion via U26, DAC-konfiguration, inputvalidering | 18 000 ms, eller 23 000 ms med phono-modul og `curInp == 6` | `:972-1055` |
+| ON6 | Backlight fades ud til 0 | 1000 ms | `:1057-1066` |
+| ON7 | Simple view (med dim-timer) eller action-skærm, logoet stopper med at blinke og lyser fast, `startupFlg = 0`, `outputMuteOff()`, `setInput()`, `#0:01;` på UART | 500 ms | `:1068-1095` |
+| ON8 | `setDisplayIntensity()` | — | `:1096-1100` |
+
+Fra AC-check til ON7 tager det ca. 25 s, og 30 s med phono. `powerOnFlg` sættes allerede i
+ON4, mens `startupFlg` stadig er sat.
+
+**Legacy: OFF-sekvens (kode læst).** OFF kører i ét blokerende kald, `handleOffSekvens1`
+(`:1101-1190`):
+
+1. Alle timere lukkes. Mute og output-mute til. Aktuelt input og digital setup gemmes.
+   `errorCheckFlg = 0`, backlight 0.
+2. 5 ms, derefter `SOFT_START_ON_OFF` af og `DPS_RELAY_ON_OFF` af. Touch i reset, display
+   af, ON/STBY-LED og logo slukkes.
+3. 700 ms, derefter ryddes `menuFlg`, `powerOnFlg` og `startupFlg`. `#0:00;` sendes på UART,
+   og USB-kommandotilstanden ryddes.
+4. 50 ms, derefter IR-interrupt fra og INT0-flaget ryddes. Deep sleep eller IDLE som
+   beskrevet ovenfor, efter yderligere 50 ms.
+
+Koden har ingen `PWR_DWN_OK`-handshake og skifter ikke mellem lineær forsyning og
+switchmode-forsyning, som [D333] gør.
+
+**Legacy: hvad der udløser sluk (kode læst).**
+
+- **On/off-knap (CN):** kun i ON, med 20 ms debounce i ISR (`:289-299`).
+- **IR `KeyOnOff`:** kun i ON (`IR_control.c:123-141`).
+- **12V-linket falder:** debounced i 30 ms, i ON og under opstart, uanset hvad der tændte
+  (`:113-159`, `:213-223`).
+- **Venstre forsyning falder ud:** `AC_RESET` er lav i 5 polls med 10 ms imellem
+  (`:1255-1309`).
+
+Desuden gælder for 12V-linket: en manuel sluk, mens linket er aktivt, blokerer for at linket
+tænder igen, indtil det har været inaktivt (`:170-195`, `:225-231`).
+
+**Legacy: AC-kontrol (kode læst).**
+
+- `AC_ReadActualFromPins()` giver `leftMissing`, hvis `AC_RESET` er lav, og ellers
+  `AC_RESULT` (`ac_check.h:43-49`).
+- **Ved mismatch:**
+  - Displayet tændes direkte, uden tænd-sekvensen.
+  - Skærmen er `leftPowerMissingScreen`, hvis venstre forsyning mangler, og ellers
+    `wrongAcVoltageScreen` (`ac_check.c:131-146`, `app.c:51-65`).
+  - ON/STBY-LED'en blinker med 1 s periode.
+  - Spændingen tjekkes igen hvert 200 ms. Når den matcher, laves et software-reset
+    (`ac_check.c:126-174`).
+  - Bootloader-aktivering virker fortsat (`ac_check.c:152-154`).
+  - `UI_ShowVoltageError()` er en stub, der kun tænder display og logo og skriver en
+    debug-linje (`ui_voltage_Error.c:5-18`).
+- **Spændingssettingen** ligger i EEPROM (`voltageSetting.c`) og kan omprogrammeres via
+  USB-kommandofilen (`app_usb_cmd.c:157`, `:345`). Er feltet ikke sat, bruges HIGH, og der
+  skrives intet til EEPROM (`On_Off_Control.c:1207-1209`, `voltageSetting.h:26-28`).
+
+_Krav til 2.0 skrives, når kandidaterne til §9 og §10 fra område 2 er placeret._
 
 ### 4.2 Input-styring
 
@@ -209,7 +301,14 @@ _Område 9._
 | TIM-xx | Debounce on/off-knap og 12V-link | 20 ms | `On_Off_Control.c:277`, `:743`, `:760` |
 | TIM-xx | IR-poll-vindue ved opvågning | 500 ms | `IR_control.c:34` |
 | TIM-xx | Noise-guard ved opvågning | 500 ms | `On_Off_Control.c:16` |
-| TIM-xx | Poll af venstre forsyning | 10 ms | `On_Off_Control.c:1255` |
+| TIM-xx | Poll af venstre forsyning | 10 ms × 5 samples | `On_Off_Control.c:1255-1256` |
+| TIM-xx | Debounce af 12V-link (faldende flanke) | 30 ms | `On_Off_Control.c:116` |
+| TIM-xx | ON-trin 1 / 2 / 3 / 4 | 500 / 500 / 1500 / 3000 ms | `On_Off_Control.c:900`, `:910`, `:921`, `:964` |
+| TIM-xx | ON-trin 5, stabilisering (D333 `T_STAB`: 21/31 s) | 18 000 ms, phono 23 000 ms | `On_Off_Control.c:1028-1029` |
+| TIM-xx | ON-trin 6 / 7 | 1000 / 500 ms | `On_Off_Control.c:1062`, `:1092` |
+| TIM-xx | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
+| TIM-xx | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
+| TIM-xx | AC-mismatch: LED-blink / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
 
 _Udvides under hvert område. Numre tildeles, når listen er komplet._
 
@@ -236,7 +335,9 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 |---|---|---|---|
 | Eksekveringsmodel, superloop med flag-ISR'er | [D333] NFR-010/011, `SW_U3_REBUILD` | Mekanisme 1:1 | _tjekkes_ |
 | DMT-watchdog og reboot-loft | [D333] NFR-013 | 1:1 | Bænkbevist 2026-10-21 ([D333] NFR-013) |
-| Auto Standby | [D333] FR-107, FR-815, FR-816 | 1:1 (#1) | _tjekkes_ |
+| Auto Standby | [D333] FR-107, FR-815, FR-816 (`app_standby.c`) | 1:1 (#1) | _tjekkes_ |
+| Power-sekvenser som tick-baseret state machine | [D333] `svc_power.c` | Mekanisme; trin og tider fra Helios (§4.1) | _tjekkes_ |
+| Standby i deep sleep/IDLE med opvågning via INT0/CN | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] | — |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._

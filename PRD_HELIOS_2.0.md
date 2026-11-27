@@ -663,15 +663,15 @@ entydigt navn for hver (§11.5).
 - **U26** (0x23, 3 bytes; `MB_IOexp_U26_Control.c:12-42`, `:152-167`):
   - **Byte 0:** input-relæer og output-mute (§4.2). Output-mute er aktiv lav (`:328-329`).
   - **Byte 1:** inputs. Bit 0 er phono-modul, og bit 1 er DAC-modul (`app.h:128-130`). Kun
-    bit 2 har pull-up og interrupt (`:160-166`). Hvad bit 2 er forbundet til, står ikke i
-    koden (§11.6).
+    bit 2 har pull-up og interrupt (`:160-166`). Ifølge diagrammet er P1_1 `DAC_REGI`, og P1_2 er
+    `!DAC_MUTE/LOCK/MQA_INT`, interruptet fra DAC-modulet (Michael, 2026-11-27).
   - **Byte 2:** bit 0 er MM/MC, bit 1 er −6 dB, bit 2 og 3 er LED for phono- og DAC-modul
     (aktiv lav), og bit 4–6 er green bias GB0–GB2.
-- **Registerskrivninger med flere bytes:** U26-koden sætter autoincrement-bitten (0x80) i
-  registeradressen (fx 0x84, 0x8C). Koden til DAC-modulets expander gør ikke. Den læser 2
-  bytes fra 0x00 og skriver 2–4 bytes til 0x54 og 0x60 uden bitten (`Dac_Control.c:56-76`,
-  `:990-1019`). Om chippen alligevel autoincrementer, står ikke i koden (§11.6). [D333 har
-  kopieret init-tabellen 1:1.]
+- **Registerskrivninger med flere bytes:** Begge expandere er PCAL6524 (Michael, 2026-11-27),
+  hvor bit 7 i kommandobytten er AI-bitten (autoincrement). U26-koden sætter den (fx 0x84,
+  0x8C). Koden til DAC-modulets expander gør ikke. Den læser 2 bytes fra 0x00 og skriver 2–4
+  bytes til 0x54 og 0x60 uden bitten (`Dac_Control.c:56-76`, `:990-1019`). Det rettes i 2.0
+  (§9.62). [D333 har kopieret init-tabellen 1:1.]
 
 **Legacy: detektion og init (kode læst).**
 
@@ -802,7 +802,9 @@ er tilsluttet, uden at se på lock.
 
 - **Mønstre på GB2..GB0:** OFF = 001, MID = 010, LOW = 100 og HIGH = 000. Kommentarerne
   passer ikke til koden: HIGH kaldes "GB1+GB2" (`app.h:215`), failsafe-mønstret 001 kaldes
-  "alt slukket" (`:359`), og filens hoved er i tvivl om polariteten (`:5-6`) (§11.6).
+  "alt slukket" (`:359`), og filens hoved er i tvivl om polariteten (`:5-6`). Kommentarerne
+  tager fejl: Mønstrene i koden virker i 1.0 og er kravet. De tre bit sætter en spænding, der
+  styrer bias på en effektforstærker (Michael, 2026-11-27).
 
 **Legacy: fejl-triggere (kode læst).** Der er ingen:
 
@@ -851,7 +853,7 @@ tabeller og tider er Helios' egne.
   - Statusordet (16 bit fra register 0x00 i DAC-modulets expander) har bittene fra §4.6.
   - Det læses ved `IO_EXP_INT` og periodisk, når et digitalt input er valgt, som [D333]
     FR-403.
-  - Læsningen afhænger af autoincrement (§11.6).
+  - Læsningen sker med AI-bitten (§9.62).
 - **FR-404 (USB-lock-gate, ufravigelig):** På USB-inputtet unmutes DAC-kanalen kun, når kablet
   er tilsluttet, der er lock, holdet er udløbet, og der ikke er user-mute (§9.13). Gaten
   evalueres ved hver statusændring. S/PDIF gates ikke på lock. Det klarer DAC'ens automute
@@ -872,7 +874,7 @@ tabeller og tider er Helios' egne.
   - Moduler kan ikke skiftes, mens enheden er tændt, som i legacy.
   - `maxInp` afledes af begge moduler (§9.14).
 - **FR-410 (green bias, Helios-specifik):**
-  - Trinnet skrives til U26 byte 2, bit 4–6, med mønstrene fra §4.6 (polaritet: §11.6).
+  - Trinnet skrives til U26 byte 2, bit 4–6, med mønstrene fra §4.6, som i 1.0.
   - Det beregnes ud fra `curLvl` (§10.3), og på et AV-input ud fra 66 (§9.18).
   - Tærskeltabellen vælges med settingen 0 eller 1 på skærmen Green Bias og gemmes på
     adressen `0x0C` (§4.11).
@@ -1279,7 +1281,9 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
     sidder på U26, som i [D333].
   - **Uden for normal drift** ejer opstart, standby og AC-fejlskærmene (FR-108) skærmen.
   - **Ingen kode** for I2C1 (touch) og EEPROM'en, som i [D333]. En låst EEPROM-slave giver E11/E12.
-  - Om "switch off and on" heler U26, U16 og U20, afhænger af forsyningen i standby (§11.6).
+  - **"Switch off and on":** U26, U16 og U20 mister forsyningen i standby, så en tænding er en
+    POR af dem (Michael, 2026-11-27). En fejl i en expander heles derfor af en tur gennem standby.
+    EEPROM'en har forsyning, så længe MCU'en har, og en låst EEPROM-slave heles ikke af standby.
 
 ### 4.11 Persistens
 
@@ -1287,8 +1291,8 @@ _Område 7 (beslutning 2026-11-27)._
 
 **Legacy (kode læst, `eeProm_Functions.c`, uændret siden `v1.0`).**
 
-- **Chip:** I²C2 med 0x50 og 0x51 og 16 B pages (`:17-25`). Det ligner en 24LC04B som i [D333],
-  men det er ikke bekræftet (§11).
+- **Chip:** I²C2 med 0x50 og 0x51 og 16 B pages (`:17-25`). Det er en 24LC04B som i [D333]
+  (Michael, 2026-11-27).
 - **Indlæsning:** Page0 og level match læses i ON4, to gange (`On_Off_Control.c:932`, `:940`), og
   i standby-vejen (`:622`). Et input valgt med IR i standby bliver derfor overskrevet af det gemte.
 - **Første boot:** Er `curInp > 11`, skrives defaults (`On_Off_Control.c:934`). En tom EEPROM
@@ -1502,7 +1506,9 @@ filnavne, titel og etiketter er Helios 1.0's.
   ON7 er nået, til en OFF-sekvens starter) og på AC-fault-skærmene (FR-108).
 - Et mount under opstart, sluk eller standby venter og behandles én gang, når gaten åbner (§9.52).
 - **Gaten** ligger i Application Layer og ikke i genereret kode (NFR-015).
-- **Forudsætning:** VBUS er forsynet i ON og på AC-fault-skærmen (§11.6).
+- **VBUS** er altid tændt og kan ikke slukkes (Michael, 2026-11-27). Firmwaren kan derfor ikke
+  slukke for en hængende stick. VBUS er strømbegrænset af en PTC (MICROSMD050F), og efter PTC'en
+  måles den halve VBUS-spænding på `USB_VBUS_ANA` (RE4). Om 2.0 skal overvåge den, er ikke afgjort.
 - **Behandlingen** sker i ét tick som i [D333], hvor den er målt til højst ca. 0,9 s (ca. 8 % af
   DMT-perioden). Helios har samme DMT-config (NFR-013). Tallet bevises igen på Helios' bænk.
 
@@ -2027,8 +2033,8 @@ adfærd, er markeret **(adfærd)**.
     - **2.0:** Det samme antal trin og den samme varighed, men hvert trin tages fra tick (§3.2).
     - **Synlig adfærd:** Den er uændret.
 32. **(adfærd) En død volumen-expander låser mute** (beslutning 2026-11-27), som [D333] §9.40.
-    - **Legacy:** Skrivningerne til U16 og U20 tjekkes ikke (`Level_Control.c:132-138`). Hvad
-      udgangen gør, når en expander står i høj-Z, er ikke målt på Helios (§11.6). I [D333] gav det
+    - **Legacy:** Skrivningerne til U16 og U20 tjekkes ikke (`Level_Control.c:132-138`). Står en
+      expander i høj-Z, giver udgangen fuld output (Michael, 2026-11-27). I [D333] gav det
       næsten fuld volumen uden volumenstyring.
     - **2.0:** Er en expanders budget brugt (E21/E22), eller er I2C3 låst (E23/E24), låser
       `svc_mute` output-mute på U26 resten af tænd-cyklussen (`SvcMute_LockMuted`). Ingen unmute
@@ -2290,8 +2296,8 @@ adfærd, er markeret **(adfærd)**.
         AC-fault-skærmene (FR-108).
       - Et mount under opstart, sluk eller standby venter og behandles én gang, når gaten åbner.
       - Gaten ligger i Application Layer og ikke i `tasks.c` (NFR-015, §9.2).
-    - **Forudsætning:** VBUS skal være forsynet i ON og på AC-fault-skærmen (§11.6). [D333] har VBUS
-      på `+5V_DISPLAY`.
+    - **VBUS** er altid tændt og kan ikke slukkes, så forudsætningen er opfyldt (Michael,
+      2026-11-27). [D333] har VBUS på `+5V_DISPLAY`.
     - **Synlig adfærd:** En stick, der sidder i ved tænding, behandles, når opstarten er færdig, og
       ikke i de første 2,5 s. En langsom stick bliver ikke længere tavst misset. Sticken virker nu
       også under afspilning.
@@ -2468,6 +2474,23 @@ adfærd, er markeret **(adfærd)**.
         lægges i repoet med hash i filnavnet som i [D333].
       - Om den er bit-identisk med BTL'en i marken, er ikke kendt (§11.2).
     - **Synlig adfærd:** Ingen for brugeren. Et forkert placeret image bygges ikke.
+62. **AI-bitten ved multi-byte-adgang til DAC-modulets expander** (beslutning 2026-11-27, FR-400,
+    FR-403).
+    - **Legacy:** DAC-modulets expander er en PCAL6524 ligesom U26 (Michael, 2026-11-27). U26-koden
+      sætter AI-bitten (0x80) i kommandobytten. Koden til DAC-modulets expander gør ikke. Den læser
+      2 bytes fra 0x00 og skriver 2–4 bytes til 0x54 og 0x60 uden bitten (`Dac_Control.c:56-76`,
+      `:990-1019`). [D333] har kopieret det 1:1 (`drv_u26.c`).
+    - **Risiko:** Flytter pointeren sig ikke uden AI, så læses statusordets bit 8–14 (lock, USB
+      tilsluttet og DAC-mute) forkert, og init rammer kun det første register. Hvad chippen gør uden
+      AI, er ikke slået op i databladet. [D333]'s DAC-paritet er bænkbevist, så læsningen virker i
+      praksis, men det er ikke vist hvorfor.
+    - **2.0:** Alle multi-byte-adgange til begge PCAL6524 sætter AI-bitten. Det ligger i driveren,
+      så et kald ikke kan glemme den.
+    - **Bænk:** Register 0x00 dumpes over UART med og uden 0x80, med og uden USB-lock. Dumpen viser,
+      om 1.0 har læst rigtigt.
+    - **Synlig adfærd:** Ingen, hvis 1.0 har læst rigtigt. Ellers bliver lock-gaten og USB-status
+      pålidelige.
+    - Foreslås tilbage til [D333].
 
 ---
 
@@ -2542,23 +2565,22 @@ _Udfyldes under område 2–9._
      Begge giver 6 dB, og det støtter 1 dB pr. trin.
 5. **Expander-navne** (område 4). U26 betyder mainboardets expander i Helios og DAC-modulets
    expander i [D333] (§4.6). Navnene i 2.0 vælges, før driverne skrives.
-6. **Hardware-spørgsmål til DAC-modulet og U26** (område 4). Kan besvares ud fra
-   diagrammet, eller ved at dumpe registrene over UART på bænken:
-   - Hvad sidder på U26 byte 1 bit 2, som er den eneste pin med interrupt? Er det
-     interruptet fra DAC-modulets expander?
-   - Autoincrementer DAC-modulets expander uden bit 0x80? Hvis ikke, læses bit 8–14 af
-     statusordet (lock, USB tilsluttet m.m.) forkert, og init-skrivningerne til 0x54 og 0x60
-     rammer kun ét register.
-   - Hvad er green bias' polaritet, og hvad er HIGH-mønstret (000)?
-   - _Område 6 (FR-830, §9.32):_ Hvilket niveau giver udgangen, når U16 eller U20 står i høj-Z?
-     Det kan måles på bænken ved at holde SDA3 til GND, som [D333] gjorde.
-   - _Område 6 (FR-830):_ Mister U26, U16 og U20 forsyningen i standby, så en tænding er en POR?
-     Sidder EEPROM'en på standby-rail'en? Det afgør, om "switch off and on" heler E1x og E2x.
-   - _Område 7 (§4.11):_ Er EEPROM'en en 24LC04B (512 B, 16 B pages, blokkene 0x50 og 0x51)?
-     Koden peger på det (`eeProm_Functions.c:17-25`), men stykliste og diagram er ikke læst.
-   - _Område 9 (§9.52):_ Hvor kommer VBUS på USB-porten fra, og er den forsynet i ON og på
-     AC-fault-skærmen? 1.0 kører aldrig USB i ON, så koden siger intet om det. Er VBUS strømbegrænset
-     i hardware ([D333]: PTC MICROSMD050F-2)?
+6. **Hardware-spørgsmål til DAC-modulet og U26** (område 4). Besvaret af Michael 2026-11-27,
+   undtagen det sidste punkt:
+   - ~~U26 byte 1 bit 2.~~ **Afgjort:** U26 er en PCAL6524. P1_1 er `DAC_REGI` (DAC-modul
+     tilsluttet), og P1_2 er `!DAC_MUTE/LOCK/MQA_INT`, interruptet fra DAC-modulet (§4.6).
+   - ~~Autoincrement på DAC-modulets expander.~~ **Afgjort:** Den er også en PCAL6524, så AI-bitten
+     (0x80) skal med ved multi-byte-adgang. 1.0 og [D333] udelader den, og det rettes i 2.0 (§9.62).
+   - ~~Green bias' polaritet.~~ **Afgjort:** Mønstrene fra 1.0 virker og er kravet (§4.6, FR-410).
+   - ~~Udgangen ved høj-Z på U16 og U20.~~ **Afgjort:** Den giver fuld output og håndteres som i
+     [D333] (§9.32).
+   - ~~Forsyningen i standby.~~ **Afgjort:** U26, U16 og U20 mister forsyningen i standby, så en
+     tænding er en POR af dem. EEPROM'en har forsyning, så længe MCU'en har (§4.10).
+   - ~~EEPROM-typen.~~ **Afgjort:** 24LC04B som i [D333] (§4.11).
+   - ~~VBUS i ON og på AC-fault-skærmen.~~ **Afgjort:** VBUS er altid tændt og kan ikke slukkes
+     (§4.14, §9.52).
+   - ~~Strømbegrænsning af VBUS.~~ **Afgjort:** VBUS går gennem en MICROSMD050F som i [D333]. Efter
+     PTC'en måles den halve VBUS-spænding på `USB_VBUS_ANA` (RE4), så VBUS kan overvåges (§4.14).
 7. **Bootloader-pinnen RA5** (§4.13, §10.7). Hvad er `ACTIVATE_BOOTLOADER` fysisk på Helios:
    en serviceknap, en jumper eller et testpunkt? Kan en bruger nå den udefra? Er der en pull-up
    i hardware, eller bygger BTL 1.0 og appen på MCC's interne pull-up?

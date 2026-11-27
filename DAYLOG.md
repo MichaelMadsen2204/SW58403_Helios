@@ -36,14 +36,13 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
    - **Nyt i D333 siden 2026-10-28:** Alt er afgjort. §9.38's gamle ACK (#417) blev afgjort med
      §9.57, FR-861/§9.42 og FR-850/§9.43 med Helios §9.37 og §9.38, og §9.40 og E31 med FR-830.
-   - Foreslå §9.35 (baglys på overlayet) og §9.36 (menu-exit ved annullering) tilbage til D333.
+   - Foreslå §9.35 (baglys på overlayet), §9.36 (menu-exit ved annullering) og §9.62 (AI-bitten på
+     DAC-modulets expander) tilbage til D333.
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
      UART-hændelseslinjen for IR fastlægges i område 8.
-   - **Åbent fra område 4, 6 og 7:** §11.6 har seks hardwarespørgsmål til Michael (U26 bit 1.2,
-     autoincrement på DAC-modulets expander, polariteten på green bias, udgangsniveauet ved
-     høj-Z på U16/U20, om standby er en POR af expanderne, og om EEPROM'en er en 24LC04B). FR-403 og FR-406
-     afhænger af autoincrement. Poll-intervallet for DAC-status i FR-403 er ikke fastlagt.
+   - **§11.6 er besvaret** (se log "§11.6"). Det er ikke afgjort, om 2.0 skal overvåge VBUS på RE4
+     (§4.14). Poll-intervallet for DAC-status i FR-403 er heller ikke fastlagt.
 
    Arbejdsgang:
    - Hver legacy-adfærd mærkes `kode læst fil:linje`.
@@ -57,6 +56,19 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§11.6)
+
+- **Svar fra Michael:** U26 er en PCAL6524, P1_1 er `DAC_REGI`, og P1_2 er
+  `!DAC_MUTE/LOCK/MQA_INT`. Green bias følger 1.0. Høj-Z på U16 og U20 giver fuld output, som i
+  D333. Expanderne mister forsyningen i standby, og EEPROM'en har forsyning, så længe MCU'en har.
+  EEPROM'en er en 24LC04B. VBUS er altid tændt og kan ikke slukkes. Den går gennem en
+  MICROSMD050F, og den halve VBUS-spænding måles efter PTC'en på `USB_VBUS_ANA` (RE4).
+- **Nyt fund, §9.62:** DAC-modulets expander er også en PCAL6524 (registerkortet i D333's
+  `drv_u26.c` passer, og Michael bekræfter). 1.0 og D333 udelader AI-bitten ved multi-byte. Det
+  rettes i 2.0 og bænkbevises med en dump af 0x00 med og uden 0x80. Det foreslås tilbage til D333.
+- **Stadig åbent:** §11.7 (RA5), og om 2.0 skal overvåge VBUS på RE4.
+- Rettet i §4.6, FR-403, FR-410, §4.10, §4.11, §4.14 og §9.32/§9.52.
 
 ### 2026-11-27 (§7)
 

@@ -15,9 +15,10 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–4 er gennemgået. Næste skridt er
-   **område 5 (IR, §4.9)**: `IR_control.c` og `Screen_IR_Source_Setup.c`. NFR-011 nævner
-   IR-sampling som kandidat til undtagelse, som i [D333].
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–4 er gennemgået. Område 5 (IR,
+   §4.9) har legacy og afvigelser færdige (§9.20–9.26, §10.4). Næste skridt er **krav til
+   2.0 i §4.9**. Brug D333's numre FR-700–704, og tilføj Helios' power-koder (12/123/124),
+   opvågning og IR-kilde. Derefter følger område 6 (GUI).
    - **Åbent fra område 4:** §11.6 har tre hardwarespørgsmål til Michael (U26 bit 1.2,
      autoincrement på DAC-modulets expander, polariteten på green bias). FR-403 og FR-406
      afhænger af autoincrement. Poll-intervallet for DAC-status i FR-403 er ikke fastlagt.
@@ -34,6 +35,22 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 5)
+- Legacy i §4.9: dekoder, toggle og hold, kommandotabel, overlays, display-wake, standby og
+  opstart samt IR-kilde. D333's løsning er bænkbevist (#56, #162, #280 del B).
+- §2 er rettet: `IR_RC5` er RH3, og RH11 er `IR_SOURCE`. Kommentaren i
+  `On_Off_Control.c:1162` er forkert.
+- **Beslutninger:**
+  - §9.20: IR samples i CN-ISR'en som D333, med RC5X og Helios' tider. Tiderne bevises på
+    bænken med en Arduino som IR-kilde. §9.12 og NFR-010/011 er rettet til D333's bus-guard.
+  - §9.21: I standby tæller kun 12/123.
+  - §9.22: Under opstart virker kun sluk (12/124) fra ON4.
+  - §9.23: Et inputvalg, der intet ændrer, gør intet.
+  - §9.24: Overlay-timeren genstartes ved tryk.
+  - §9.25: IR blokerer ikke.
+  - §9.26: Død kode, og kode 21 ignoreres.
+  - §10.4: IR-kilden gemmes som i 1.0, og område 7 samler op.
 
 ### 2026-11-27 (område 4, krav)
 - Krav til 2.0 i §4.6: FR-203, FR-400–406 efter [D333], FR-407 (moduldetektion) og FR-410

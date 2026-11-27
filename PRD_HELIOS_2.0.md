@@ -116,12 +116,12 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
   state machines fra main-loopet. ISR'er og `SYS_TIME`-callbacks sætter kun flag eller
   tidsstempler ([CONV] §3–4). De kalder aldrig Legato, I²C, backlight, `printf`, delays eller
   `SYS_TIME`-API'er, og de skriver aldrig til en tilstandsvariabel, som main-loopet også
-  skriver.
+  skriver. Undtagelse: IR-ISR'en sampler en hel RC5-frame (§9.20). Den skriver kun
+  driverens egen kode-buffer.
 - **NFR-011:** Ingen blokerende delays i normal drift. Ventetider er state-machine-tilstande
   med sammenligning af tidsstempler. Undtagelser markeres `// CONVENTION-EXCEPTION:` og står
   her. Område 2: sleep-kaldet og UART-drænet før sleep (§4.1). Område 4: DAC-init i ON5
-  (FR-400). _(Område 5: IR-sampling er
-  kandidat, som i [D333].)_
+  (FR-400). Område 5: IR-bit-sampling i CN-ISR'en (§9.20), som [D333].
 - **NFR-012:** Alle I²C-transaktioner har eksplicit timeout og returnerer en statuskode
   (I2C-001/005; legacy: #3).
 - **NFR-013:** Watchdog er DMT, tændt fra software med BTL 1.0's config
@@ -271,7 +271,8 @@ tidsstempler, ikke `SYS_TIME`-callbacks. Trin, rækkefølge og tider er Helios' 
   er hardwarebeskyttelse og ændres ikke. `#0:01;` sendes i ON7.
 - **FR-101 (stabilisering):** ON5 venter 18 s, eller 23 s, når phono-modulet er monteret og
   det validerede input er 6. [D333]'s 21/31 s bruges ikke.
-- IR og persistens under opstart fastlægges i område 5 og 7.
+- IR under opstart: kun sluk (12/124) fra ON4 (§9.22). Persistens under opstart fastlægges i
+  område 7.
 - **FR-105 (OFF-sekvens):** Trinene og deres rækkefølge er som i legacy (§4.1), men tick-
   baseret.
   - Der gemmes efter §9.8.
@@ -510,7 +511,8 @@ grænser og tider er Helios' egne.
 - **FR-301 (make-before-break):**
   - Tre faser som i legacy, skiftevis L og R, med 2 ms efter hver skrivning.
   - Ventetiden er en tilstand og ikke en busy-wait (NFR-011).
-  - Der er ingen IR-guard (§9.12).
+  - Volumensekvensen slår ikke IR fra. En bus-guard udsætter i stedet IR-dekodningen under
+    I²C (§9.12).
 - **FR-302 (relæ-indeks):** Indekset beregnes pr. kanal i `SvcVolume_SetContext`:
   - **Analogt input:** `niveau + balance + level match`.
   - **Digitalt input med digital gain:** `niveau + 6 + balance`.
@@ -824,7 +826,8 @@ står i klammer.
   (RC5X). [D333 afkoder RC5X, men kasserer kommandoer over 63.]
 - **System:** Kun system 16 behandles (`:689`, `:723`).
 - **IR under volumenskrivning:** CN-interruptet er slået fra under make-before-break
-  (`Level_Control.c:126`, `:165`). 2.0 har ingen IR-guard der (§9.12).
+  (`Level_Control.c:126`, `:165`). I 2.0 udsætter en bus-guard i stedet IR-dekodningen under
+  I²C (§9.12).
 
 **Legacy: toggle og gentagelse (kode læst; `IR_control.c:682-808`).**
 
@@ -979,10 +982,10 @@ _Område 9._
 | TIM-17 | `T_DIM` | 8 s (Helios-værdi bevares; D333: 10 s) | `app.h:85` |
 | TIM-xx | `T_SCREENSWAP` | 300 ms | `app.h:86` |
 | TIM-xx | Debounce on/off-knap og 12V-link | 20 ms | `On_Off_Control.c:277`, `:743`, `:760` |
-| TIM-xx | IR-poll-vindue ved opvågning | 500 ms | `IR_control.c:34` |
+| TIM-xx | IR-poll-vindue ved opvågning (udgår i 2.0, §9.25) | 500 ms | `IR_control.c:34` |
 | TIM-xx | RC5: offset fra flanke / halvbit / ventetid på burst (D333 TIM-23: 448 / 910 µs) | 1333 / 889 µs / 40 ms | `IR_control.c:444-467` |
 | TIM-xx | RC5: blokering efter Manchester-fejl | 25 ms | `IR_control.c:486` |
-| TIM-xx | IR-volumen: forsinkelse før gentagelse (D333 FR-702: 200 ms) | 200 ms (blokerende) | `IR_control.c:795` |
+| TIM-xx | IR-volumen: forsinkelse før gentagelse (D333 FR-702: 200 ms) | 200 ms (legacy blokerende, 2.0 fra sidste accept, §9.25) | `IR_control.c:795` |
 | TIM-xx | IR-overlay og display-view (D333 TIM-18: 3 s) | 3000 ms | `IR_control.c:309`, `:361` |
 | TIM-xx | Noise-guard ved opvågning | 500 ms | `On_Off_Control.c:16` |
 | TIM-xx | Poll af venstre forsyning | 10 ms × 5 samples | `On_Off_Control.c:1255-1256` |
@@ -1039,7 +1042,7 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | DAC-modul: init, digitalt skift, lock-gate, filtre og status | [D333] FR-203, FR-400–406, `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_dac` | Mekanisme og registersekvenser 1:1. Helios' input-numre 7–11 og S/PDIF-Fs fra Helios' tilstandsmaskine (§9.15) | Bænkbevist (D333 #53, Audio Precision, lukket 2026-07-09) |
 | Retry af fejlet digitalt skift | [D333] §9.28, `svc_dac` | 1:1 (§9.19) | Host-verificeret (D333 #234) |
 | Green bias | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] (FR-410) | — |
-| IR: RC5-dekoder, toggle, hold og overlays | [D333] FR-700–704, `drv_ir_rc5`, `app_ir`, `gui_remote_view` | _Afgøres i område 5._ Helios har brug for RC5X (123/124), power og opvågning fra standby samt IR-kilde | Bænkbevist (D333 #56, #162, #280 del B) |
+| IR: RC5-dekoder, toggle, hold og overlays | [D333] FR-700–704, `drv_ir_rc5`, `app_ir`, `gui_remote_view` | Dekodermekanismen 1:1 med RC5X og Helios' tider (§9.20). Resten _afgøres i område 5._ Helios har brug for RC5X (123/124), power og opvågning fra standby samt IR-kilde | Bænkbevist (D333 #56, #162, #280 del B) |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._
@@ -1133,8 +1136,10 @@ adfærd, er markeret **(adfærd)**.
 12. **Ingen IR-guard under make-before-break** (beslutning 2026-11-27), som [D333] §9.19.
     - **Legacy:** IR-interruptet er slået fra under hele volumensekvensen, ca. 12 ms
       (`Level_Control.c:126`, `:165`).
-    - **2.0:** IR-ISR'en sætter kun et flag (NFR-010), så guarden beskytter ikke længere
-      noget, og den kan koste IR-koder.
+    - **2.0:** Volumensekvensen slår ikke IR fra. Beskyttelsen går den anden vej: IR-ISR'en
+      sampler i ca. 24 ms (§9.20), og en bus-guard udsætter dekodningen, mens en
+      I²C-transaktion kører, som [D333] §9.19 (`DrvIrRc5_SuspendDecode`). En IR-frame, der
+      tabes under et volumenskift, accepteres.
     - **Evidens:** [D333] #173 er verificeret på bænken: 18 s med tung IR-spam gav 111 rene
       MBB-par og ingen korruption.
     - **Bænktest på Helios:** Testen gentages med IR-spam under volumenskift. Den kan
@@ -1212,6 +1217,83 @@ adfærd, er markeret **(adfærd)**.
       skift starter med fuldt budget, og et skift til et analogt input annullerer ønsket.
     - **Synlig adfærd:** Mens skiftet venter eller er eskaleret, vises "NO SIGNAL" (FR-406).
     - **Evidens:** host-verificeret i [D333] (`test_svc_dac.c`, #234).
+20. **IR samples i CN-ISR'en som [D333]** (beslutning 2026-11-27).
+    - **Legacy:** ISR'en sætter kun et flag, og main-loopet dekoder senere ud fra antagelsen
+      om, at det står på den første faldende flanke (§4.9). Kører main-loopet længe, rammer
+      samplingen forkert (udledt, ikke målt). Dekodningen blokerer main-loopet i 24–90 ms
+      pr. frame.
+    - **2.0:** [D333]'s mekanisme 1:1 (`drv_ir_rc5`): sampling i CN-ISR'en på faldende flanke
+      med interrupts slået fra og en `CONVENTION-EXCEPTION` (NFR-010, NFR-011). Synkroniseringen
+      er bundet af CORETIMER, interrupt-tilstanden gendannes ved hver udgang, og der er en
+      bus-guard mod I²C (§9.12). Den rene `DecodeHalfBits` er host-testet.
+    - **Helios-tilpasning:** RC5X (kommando 64–127) sendes videre, så 123 og 124 virker.
+      [D333 kasserer kommandoer over 63.]
+    - **Tider:** [D333]'s 448 / 910 µs er afstemt efter D333's modtager. Helios' tider
+      bevises på Helios' egen modtager. Helios 1.0's 1333 / 889 µs (§5) er udgangspunktet.
+    - **Bænktest (kan automatiseres, HIL-001/003):** En Arduino med IR-LED sender alle
+      kommandoer som RC5 og RC5X med hold og toggle, også under volumenskift. Firmwarens
+      UART-hændelseslinje er oraklet, og ingen frame må tolkes forkert.
+21. **(adfærd) I standby tæller kun 12 og 123** (beslutning 2026-11-27).
+    - **Legacy:** `PollIrForOn` sender hver frame gennem hele `handleIrCommand`
+      (`IR_control.c:42-64`, `:709-847`). Volumen og direkte inputvalg ændrer derfor
+      `curLvl` og `curInp` i standby, og display-logikken kan køre (udledt, ikke set på
+      bænken).
+    - **2.0:** I standby er 12 (`com_on_off`) og 123 (`com_power_on`) de eneste gyldige
+      tænd-årsager fra IR. Alle andre frames kasseres uden sideeffekter.
+    - **Test:** på host. Alle andre kommandoer sendes i standby, og tilstanden skal være
+      uændret.
+22. **(adfærd) Under opstart virker kun IR-sluk** (beslutning 2026-11-27).
+    - **Legacy:** `wakeUpFlg` ryddes i ON4 (`On_Off_Control.c:946`), og derefter blokerer
+      `handleIrCommand` kun i menuen (`IR_control.c:716-730`). Volumen, input, mute og
+      overlays virker derfor i ON5–ON7, mens enheden er mutet (udledt).
+    - **2.0:** Fra ON1 til ON7 ignoreres al IR undtagen 12 og 124. De slukker fra ON4, som
+      on/off-knappen (FR-106). Gatingen er [D333]'s (D333 FR-102, FR-703, bænkbevist i
+      D333 #280 del B), og sluk-muligheden er Helios'.
+    - **Test:** på host. Volumen sendes i ON5, og `curLvl` skal være uændret. 124 i ON5 skal
+      starte OFF-sekvensen.
+23. **(adfærd) Et IR-inputvalg, der intet ændrer, gør intet** (beslutning 2026-11-27).
+    - **Legacy:** Direkte valg sætter `irInputChangeFlg`, også når `curInp` ikke ændres. Det
+      gælder kode 6 uden phono-modul og valg af det aktuelle input (`IR_control.c:146-150`).
+      Flaget kører `setInput()` igen (`screen_Action.c:1335-1359`,
+      `Screen_SimpleView.c:47-56`). Det giver et mute-hold (200 eller 2000 ms) og et kort
+      lydudfald.
+    - **2.0:** Et input, der ikke findes, afvises, før der sker noget, som [D333] #91
+      (`AppCommands_IsDirectInputAllowed`). Er inputtet allerede valgt, sker der intet. Det
+      tjekkes ved implementeringen, om [D333]'s `AppAudioCtrl_SetInput` allerede ignorerer
+      et genvalg.
+    - **Touch og UART:** Om det samme gælder genvalg fra dem, afgøres i område 6 og 8.
+    - **Test:** på host.
+24. **(adfærd) Et tryk på et IR-overlay genstarter 3 s-timeren** (beslutning 2026-11-27).
+    - **Legacy:** På Filter-, DSD-LP- og Gain-overlayet ændrer et tryk værdien, men timeren
+      genstartes ikke (`IR_control.c:356-426`). Overlayet lukker 3 s efter første tryk. På
+      Display-overlayet genstartes timeren (`:335-341`).
+    - **2.0:** [D333]'s `gui_remote_view` 1:1. Et tryk på overlayet udfører handlingen,
+      viser overlayet igen med den nye værdi og genstarter timeren. Det gælder for alle
+      fire overlays. Bænkbevist i [D333] #56.
+25. **IR blokerer ikke main-loopet** (beslutning 2026-11-27).
+    - **Legacy:**
+      - Ved hold blokeres i 200 ms (`IR_control.c:795`), og frames tabes imens.
+      - En Manchester-fejl giver 25 ms ekstra (`:486`).
+      - `PollIrForOn` blokerer i op til 500 ms ved opvågning, også fra INT0-ISR'en (§3.2).
+    - **2.0:**
+      - **Hold** som [D333] FR-702: Første gentagelse kommer tidligst 200 ms efter sidste
+        accept, og derefter giver hver frame ét trin, indtil togglebitten skifter. De 200 ms
+        er Helios'.
+      - **Fejlframe:** En ugyldig frame kasseres uden ventetid.
+      - **Opvågning:** Der er intet separat IR-vindue. Tænd-koden søges inden for
+        noise-guarden på 500 ms (FR-120, §9.6). TIM-rækken for IR-poll-vinduet udgår.
+    - **Synlig adfærd:** stort set uændret.
+26. **Død IR-kode videreføres ikke** (beslutning 2026-11-27), som §9.17. Følgende har ingen
+    virkning og overføres ikke:
+    - `ignoreToggleFlg` og `ignoreToggleCnt` (`IR_control.c:21-23`, `:685`, `:700`).
+    - `irOneStepVol` (`:24`).
+    - `isImmediateWhenDisplayOff`, `isDeferredUiWakeCommand` og `isVolumeCommand`
+      (`:574-592`).
+    - `irActionScreenDisplayTiming` og `irSimpleViewScreenDisplayTiming` (`:606-632`).
+    - Kode 21 (`com_monitor`, `KeyMonitor`, `app.h:97`, `:107`). Helios har ingen
+      monitor-funktion, så 2.0 ignorerer kode 21. [D333 bruger kode 21 til monitor.]
+
+    Ingen adfærd ændres.
 
 ---
 
@@ -1235,6 +1317,14 @@ _Udfyldes under område 2–9._
    - Digital gain, level match og balance flytter ikke bias-trinnet
      (`MB_IOexp_U26_Control.c:365-389`).
    - Tærsklerne er de samme som i 1.0 (§4.6). Undtagelsen er AV (§9.18).
+4. **IR-kilden gemmes ved "tilbage til menu", og ≠ 0 betyder front** (beslutning 2026-11-27).
+   - Valget lægges straks ud på `IR_SOURCE`, men gemmes først i EEPROM 0x05, når der
+     trykkes "tilbage til menu" (`Screen_IR_Source_Setup.c:13-33`). Slukkes enheden på
+     skærmen, bruges den gamle modtager efter næste tænd.
+   - EEPROM-værdien valideres ikke. Enhver værdi ≠ 0 giver front (`On_Off_Control.c:625-628`),
+     også 0xFF i en tom EEPROM.
+   - Hvornår settings gemmes, afgøres samlet for alle settings-skærme i område 7. Indtil da
+     følger IR-kilden 1.0.
 
 ---
 

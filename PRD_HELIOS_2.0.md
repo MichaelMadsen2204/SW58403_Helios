@@ -1108,6 +1108,37 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
 **Legacy: fade (kode læst).** Fade ind og ud tager 40 × 50 ms og blokerer
 (`Display_Backlight.c:4-24`, kaldt fra `On_Off_Control.c:919` og `:1059`).
 
+**Krav til 2.0.** Mekanismen er [D333]'s `gui_*` og `gui_bridge` (§8).
+
+- **FR-800 (skærmkatalog):** 2.0 får de samme skærme og betjeningsflows som 1.0 (legacy-kataloget
+  ovenfor), med følgende ændringer:
+  - `SN_SET` udgår.
+  - `errorDisplay` bliver SYSTEM ERROR-skærmen ([D333] FR-530).
+  - `autoStandby` kommer til som menuskærm og `autoStandbyWarning` som overlay ([D333] FR-815
+    og FR-816).
+
+  Forskelle fra [D333]:
+  - Der er ingen monitor og ingen ventilator.
+  - Green bias er altid synlig i menuen.
+  - AV-valget er ingen, input 3 eller input 4.
+  - Der er to AC-fejlskærme: `leftPowerMissingScreen` og `wrongAcVoltageScreen` (FR-108).
+- **FR-810 (drift-skærme):** Følger [D333] FR-810.
+  - Efter ON vises simple view, hvis det er slået til, og ellers action.
+  - Action falder tilbage til simple view efter `T_ACTIONVIEW` (6 s, TIM-16) uden betjening.
+  - Touch på simple view viser action.
+  - Skærmskiftet sker fra GUI-tick, aldrig fra en timer-callback (§3.2).
+- **FR-811 (display-modes):** Følger [D333] FR-811, men `T_DIM` er 8 s (TIM-17).
+  - Auto-dim går til 15 %, og auto-off går til 0 %.
+  - Kun auto-off tæller som slukket display over for IR (§4.9).
+- **FR-812 (PWM):** Følger [D333] FR-812: 100/60/40/15.
+- **FR-880 (skærmskift og baglys, Helios-specifik):** Ved skift til action eller simple view holdes
+  baglyset uændret i `T_SCREENSWAP` (300 ms) efter `OnShow`. Først derefter sættes modens
+  intensitet. Ved touch på simple view slukkes baglyset før skiftet.
+- **FR-881 (fade, Helios-specifik):** Ved ON og OFF fades baglyset ind og ud over 40 × 50 ms.
+  2.0 kører fade'en fra tick og blokerer ikke (§9.31).
+- **FR-882 (menu):** Når menuen åbnes, stoppes display-timerne, og baglyset sættes til 100 %.
+  Mute og genskrivning af niveauet følger FR-314. Når menuen forlades, vises action.
+
 ### 4.11 Persistens
 
 _Område 7._ EEPROM-layout fra 1.0 og ledige adresser til Auto Standby står i #1.
@@ -1164,7 +1195,7 @@ _Område 9._
 | TIM-xx | ON-trin 5, stabilisering (D333 `T_STAB`: 21/31 s) | 18 000 ms, phono 23 000 ms | `On_Off_Control.c:1028-1029` |
 | TIM-xx | ON-trin 6 / 7 | 1000 / 500 ms | `On_Off_Control.c:1062`, `:1092` |
 | TIM-xx | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
-| TIM-xx | Baglys-fade ind/ud (legacy blokerende) | 40 × 50 ms | `Display_Backlight.c:4-24` |
+| TIM-xx | Baglys-fade ind/ud (legacy blokerende, 2.0 fra tick, §9.31) | 40 × 50 ms | `Display_Backlight.c:4-24` |
 | TIM-xx | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
 | TIM-xx | AC-mismatch: LED skifter / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
 | TIM-xx | Inputskift: mute-hold kort / langt (D333 TIM-08: 200 / 2000 ms) | 200 / 2000 ms | `MB_IOexp_U26_Control.c:479` |
@@ -1514,6 +1545,11 @@ adfærd, er markeret **(adfærd)**.
 
     I 2.0 modelleres overlays efter NFR-016, hvor tilstand og skærm er adskilt. Ingen adfærd
     ændres.
+31. **Baglys-fade blokerer ikke** (beslutning 2026-11-27, FR-881).
+    - **Legacy:** Fade ind og ud tager 40 × 50 ms i ét blokerende kald (`Display_Backlight.c:4-24`,
+      kaldt fra `On_Off_Control.c:919` og `:1059`). Main-loopet står stille i 2 s (kode læst).
+    - **2.0:** Det samme antal trin og den samme varighed, men hvert trin tages fra tick (§3.2).
+    - **Synlig adfærd:** Den er uændret.
 
 ---
 

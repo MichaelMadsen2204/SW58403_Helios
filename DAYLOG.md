@@ -16,8 +16,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 ## Næste skridt
 
 1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. I område 6 (GUI) er
-   de 8 fund placeret, og legacy-afsnittet i §4.10 er skrevet (2026-11-27, se log). Kravene til
-   2.0 i §4.10 mangler.
+   de 8 fund placeret, legacy-afsnittet i §4.10 er skrevet, og kravene til skærmkatalog og skift
+   (FR-800–812, FR-880–882) er skrevet (2026-11-27, se log). Resten af kravene i §4.10 mangler.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -26,8 +26,7 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
      level match (område 6), FR-850/§9.43 MM/MC og ugyldig `pickupSel` (område 6/7), §9.38
      gammel ACK fjernes før kommandofilen (#417, §4.14) og E31 ved et eskaleret DAC-valg
      (§9.19, område 6).
-   - **Område 6:** Skriv kravene til 2.0 i §4.10: skærmkatalog,
-     display-modes, skærmskift med 300 ms, SYSTEM ERROR-skærmens kodetabel, Auto Standby
+   - **Område 6:** Skriv resten af kravene til 2.0 i §4.10: SYSTEM ERROR-skærmens kodetabel, Auto Standby
      (FR-815, FR-816), Pickup og AV (sammen med [D333] FR-850 og FR-861) og GUI-001 i §3.3
      (undersøg Helios' vælgerskærme).
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
@@ -50,6 +49,16 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 6, krav til skærme)
+
+Kravene til skærmkatalog og skift er skrevet i §4.10 (Michael):
+
+- FR-800, FR-810, FR-811 og FR-812 følger [D333] med Helios' forskelle: ingen monitor og
+  ventilator, Green bias, AV på input 3 og 4, to AC-fejlskærme og `T_DIM` på 8 s.
+- FR-880 (300 ms ved skærmskift) og FR-881 (fade) er Helios-specifikke. D333 har ingen af dem.
+- Fade blokerer ikke i 2.0 (§9.31).
+- FR-882 (menu) henviser til FR-314 for mute. D333 løser det med FR-316 i `app_audio_ctrl`.
 
 ### 2026-11-27 (område 6, legacy)
 

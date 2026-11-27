@@ -237,6 +237,7 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 | 7 | §4.11 Persistens | `eeProm_Functions.c` | Gennemgået 2026-11-27 |
 | 8 | §4.12 UART-testinterface | `uart_control.c` | Gennemgået 2026-11-27 |
 | 9 | §4.14 Servicestick | `app_usb_cmd.c` | Gennemgået 2026-11-27 |
+| – | §4.13 Bootloader-kontrakt | `On_Off_Control.c`, `user.h`, `app_mz.ld`, `postbuild.cmd`, `BTL/src` | Gennemgået 2026-11-27 |
 
 ### 4.1 Power-styring
 
@@ -1409,9 +1410,57 @@ BTL).
 
 ### 4.13 Bootloader-kontrakt
 
-App 2.0 SKAL kunne installeres via BTL 1.0. Bindingerne står i kommentaren på #1 og
-overføres hertil (filnavn, image-start `0x9D000000`, hop-ord `0x9D000200`, frosne
-config-ord, RAM-trigger `0x80000000–0F`).
+_Beslutning 2026-11-27._ App 2.0 SKAL kunne installeres via BTL 1.0, som er i marken og ikke kan
+ændres uden PICkit (§1). Mekanismen er [D333] FR-1100, mens kontrakten er BTL 1.0's. BTL 1.0's egne
+svagheder løses ikke af appen. De hører til BTL 2.0 (#2).
+
+**Legacy (kode læst).**
+
+- **Indgang fra appen:** CN-ISR'en på `ACTIVATE_BOOTLOADER` (RA5, aktiv lav) sætter
+  `APP_ACTIVATE_BOOTLOADER` (`On_Off_Control.c:235-239`). Triggeren udføres i `app.c:255`,
+  `On_Off_Control.c:424` og `ac_check.c:152` (§9.59).
+- `APP_TriggerBootloader()` skriver mønstret ×4 via kseg1 og laver straks et software-reset
+  (`user.h:38-62`, §10.7).
+- **Indgang uden appen:** BTL 1.0 læser RA5 ved hvert reset (`BTL app.c:131`). Holdes pinnen lav ved
+  tænding, går enheden i bootloader uanset appen.
+- **BTL 1.0's svagheder (til #2):**
+  - Ingen versionsblok (BTL-014, §9.44).
+  - Side 0 med hop-ordet skrives først (BTL-010).
+  - Skrivningerne hegnes ikke (BTL-011).
+  - Ingen produktblok, så en omdøbt bin til et andet produkt installeres (BTL-015).
+  - Ingen nedgraderingsspærre.
+
+**Kontrakten med BTL 1.0** (BTL-014). Den diffes før og efter enhver regenerering, ændring af
+linkerscript eller skift af toolchain.
+
+| Binding | Værdi | Kilde (kode læst) |
+|---|---|---|
+| Filnavn | `FW58403_Ver_<maj>.<min>.bin` i roden. Store og små bogstaver er lige, ingen patch-del og intet suffiks. Den numerisk højeste fil vinder. | `BTL/src/filenameCheck.c:11`, `:32-84`, `:141` |
+| Image | Rå bin fra `0x9D000000` (fysisk `0x1D000000`), højst 2 MB | `bootloader_common.h:58`, `:70`, §9.61 |
+| Hop-ord | `0x9D000200` ≠ `0xFFFFFFFF` | `bootloader_common.h:71`, `initialization.c:339-341` |
+| Config-ord | BTL 1.0's: `FWDTEN=OFF`, `FDMTEN=OFF`, `DMTCNT=DMT31`, `DMTINTV=WIN_127_128`, `WDTPS=PS1048576`, `FNOSC=SPLL`, `POSCMOD=HS`. Appens kasseres. | `BTL initialization.c:77-90`, `app_mz.ld:1249`, NFR-013 |
+| Trigger | `0x5048434D` ×4 på `KVA1(0x80000000)`, derefter software-reset. BTL rydder kun ord 0. | `bootloader_common.h:74-76`, `BTL app.c:117-126` |
+| BTL's RAM | Fra `0x80000010`, stak i toppen | `btl.ld:276`, BTL-016 |
+| Persistent RAM | `.persist` på `0x80000000`, magic ≠ mønster | §9.60 |
+| Pin | RA5 aktiv lav, læses af BTL ved hvert reset | `BTL user.h:64-67` |
+
+**FR-1100 (bootloader-aktivering, §9.59, TIM-22):** Som [D333] FR-1100:
+- **Debounce:** Pinnen er lav i mindst 20 ms. Den polles fra ticket i alle vågne tilstande: boot-stien
+  fra AC-check til ON7, RUNNING og AC-fault-skærmene (FR-108).
+- **Udførelse:** Mønstret skrives ×4 på `KVA1(0x80000000)`, og der laves et software-reset uden
+  ordnet OFF (§10.7). Triggeren udløses én gang.
+- **Ejerskab:** Registrene ejes af HW-laget (som [D333] `drv_sysio`). Mønster, adresse og længde er
+  en kopi af BTL's, og vagten bevogter den (§9.60).
+
+**FR-1101 (byggevagter, §9.60, §9.61):**
+- **Kontraktvagten** (`check_btl_contract.py` som [D333]) tjekker:
+  - mønster, adresse og længde mod `BTL/src/config/default/bootloader/bootloader_common.h`,
+  - at `.persist` ligger først i `kseg0_data_mem`,
+  - alignment, størrelse og magic.
+- **Postbuild** afviser et image uden for app-flashen, med en laveste adresse ≠ `0x1D000000` eller
+  over 2 MB, og skriver da ingen fil. Det fletter en samlet hex med den frosne BTL 1.0-hex.
+- **`firmwareVersion`** SKAL have formen `<maj>.<min>` med tal. Postbuild afviser andet, for BTL 1.0
+  overser filen tavst.
 
 ### 4.14 USB-servicestick
 
@@ -1478,6 +1527,7 @@ FR-1303. `BOOT` læser den.
 |---|---|---|---|
 | TIM-16 | `T_ACTIONVIEW` | 6 s (D333: 6 s) | `app.h:84` |
 | TIM-17 | `T_DIM` | 8 s (Helios-værdi bevares; D333: 10 s) | `app.h:85` |
+| TIM-22 | Debounce af bootloader-pin (som D333) | 20 ms | FR-1100, §9.59 (legacy: ingen debounce) |
 | TIM-24 | `T_AUTOSTBY` | OFF eller 1–10 t, i trin på 1 t (som D333) | FR-107, FR-815 (ny i 2.0) |
 | TIM-25 | `T_AUTOSTBY_WARN` | 30 s (som D333) | FR-816 (ny i 2.0) |
 | TIM-xx | `T_SCREENSWAP` | 300 ms | `app.h:86` |
@@ -2224,6 +2274,77 @@ adfærd, er markeret **(adfærd)**.
     - **2.0:** Ingen `SN:`- eller `ERROR`-kommando og ingen SN-linje i kvitteringen. En sådan linje
       afvises som ugyldig (§9.55).
     - **Synlig adfærd:** Ingen. 1.0 gjorde heller intet med `SN:`. Den ignorerede bare linjen.
+59. **Bootloader-pinnen polles med debounce som i [D333], også under opstart** (beslutning
+    2026-11-27, §4.13), FR-1100 og TIM-22.
+    - **Legacy (kode læst):**
+      - CN-ISR'en på `ACTIVATE_BOOTLOADER` (RA5, aktiv lav) skriver
+        `appData.state = APP_ACTIVATE_BOOTLOADER` ved lav uden debounce (`On_Off_Control.c:235-239`,
+        registreret ved `:573-577`). Det er en ISR-skrivning til applikationstilstand (§3.2).
+      - `appData.state` skrives 26 andre steder, så et tryk kan overskrives, før `APP_Tasks` ser det.
+        ISR'en reagerer kun på en ændring, så et overskrevet tryk kræver, at pinnen slippes og
+        trykkes igen.
+      - Triggeren udføres tre steder: `app.c:255`, mismatch-løkken i `On_Off_Control.c:424` og
+        `ac_check.c:152`.
+    - **[D333] FR-1100** (`app_core.c:162-185`, `:242`, host-testet i `test_app_core.c:315`): Pinnen
+      polles fra ticket i RUNNING og AC-fault. Stabil aktiv i 20 ms (TIM-22) udløser triggeren én
+      gang.
+    - **2.0:** Mekanismen er [D333]'s, og den gælder i alle vågne tilstande:
+      - boot-stien fra AC-check til ON7,
+      - RUNNING,
+      - AC-fault-skærmene (FR-108).
+    - **OFF-sekvensen og standby** er ikke med. I standby sover CPU'en. Holdes RA5 lav ved næste
+      tænding, går BTL 1.0 selv i bootloader (`BTL app.c:131`).
+    - **Synlig adfærd:** Et prel under 20 ms udløser ikke længere bootloaderen, og et tryk går ikke
+      tabt.
+60. **Persistent RAM deler adresse med triggeren som i [D333], og en vagt bevogter kontrakten**
+    (beslutning 2026-11-27, §4.13), BTL-016 og NFR-013.
+    - **Legacy (kode læst):**
+      - `app_mz.ld:124-125` siger "Reserve 16 Bytes to Store Bootloader Trigger Pattern", men
+        `ORIGIN = 0x80000000, LENGTH = 0xA0000 - 16` fjerner de øverste 16 bytes, og appens data
+        begynder på `0x80000000` oven i triggeren.
+      - Det er harmløst i 1.0, for mønstret skrives lige før et software-reset, og 1.0 har ingen
+        persistent RAM.
+      - BTL 1.0's data begynder på `0x80000010` (`btl.ld:276`), og BTL rydder kun ord 0, når mønstret
+        matcher (`BTL app.c:120-126`).
+    - **[D333]** (`drv_sysio.c:153-170`, bænkbevist 2026-10-21) har samme genererede `app_mz.ld` og
+      retter den ikke:
+      - Reboot-loftets slot ligger i `.persist` (`app_mz.ld:1097`), som er den første ikke-tomme
+        sektion i `kseg0_data_mem`. Altså på `0x80000000`, oven i triggeren.
+      - Slottet er én cachelinje (16 B), alignet og tilgået via kseg1. Magic er `RBL1` og dermed ≠
+        `0x5048434D`.
+      - `tools/check_btl_contract.py` (ctest) tjekker mønster, adresse og længde mod BTL's
+        `bootloader_common.h`. Desuden tjekker den, at `.persist` er første sektion, alignment,
+        `_Static_assert` på størrelsen og magic ≠ mønster.
+      - I en debug-session flytter `.dbg_data` slottet. Så virker loftet ikke, men intet bliver
+        farligt.
+    - **2.0:**
+      - Som [D333]. Helios' `app_mz.ld` er genereret, identisk med `v1.0` og har den samme
+        `.persist`-sektion, så linkerscriptet rettes ikke (NFR-015).
+      - Vagten porteres og peger på `BTL/src/config/default/bootloader/bootloader_common.h` og
+        Helios' `app_mz.ld`. Den køres efter hver regenerering af App eller BTL (MCC-001, BTL-007).
+      - Det er rettet i forhold til #1, hvor der stod, at reservationen skulle rettes.
+    - **Synlig adfærd:** Ingen.
+61. **Postbuild med vagt og samlet hex som i [D333]** (beslutning 2026-11-27, §4.13), BTL-011,
+    BTL-012 og BTL-013.
+    - **Legacy (kode læst, `App/SW58403.X/postbuild.cmd`):**
+      - `xc32-objcopy -I ihex -O binary` danner `<binFileName><firmwareVersion>.bin` uden kontrol af
+        hex'ens indhold.
+      - Bin'en begynder ved hex'ens laveste adresse. Ligger noget under `0x1D000000` eller uden for
+        app-flashen, forskydes imaget tavst eller bliver for stort.
+      - BTL 1.0 skriver det fra `0x9D000000` uden hegn (BTL-011).
+      - Der laves ingen samlet hex med BTL, så en chip-slettet enhed kræver to hex-filer (BTL-013).
+    - **[D333]** (`postbuild.cmd`, `tools/versioned_outputs.py`):
+      - Gamle filer slettes først, og ved fejl skrives ingen fil.
+      - Den samlede hex flettes med produktets frosne BTL-hex (`bootloader/release/`). Fletningen
+        afviser overlap, data i config-området og en manglende EOF.
+      - Et debug-byg laver hverken bin eller samlet hex.
+    - **2.0:**
+      - Som [D333]. Hex-vagten afviser desuden alt uden for app-flashen `0x1D000000–0x1D1FFFFF`, en
+        laveste adresse ≠ `0x1D000000` og et image over 2 MB (bindingerne fra #1).
+      - Den frosne BTL-hex er BTL 1.0, bygget fra `BTL/SW58403BL.X` på `v1.0` med XC32 4.60, og den
+        lægges i repoet med hash i filnavnet som i [D333].
+      - Om den er bit-identisk med BTL'en i marken, er ikke kendt (§11.2).
+    - **Synlig adfærd:** Ingen for brugeren. Et forkert placeret image bygges ikke.
 
 ---
 
@@ -2273,13 +2394,22 @@ _Udfyldes under område 2–9._
    - SVC-005 ("fejl og succes skal se forskellige ud") er opfyldt af kvitteringen (`STATUS`) og
      af, at der ingen fil er ved en fejl. Et overlay er fravalgt, fordi det ville være ny
      GUI-funktionalitet (§1).
+7. **Bootloader-triggeren resetter uden ordnet OFF** (beslutning 2026-11-27, §4.13), som 1.0 og
+   [D333] FR-1100.
+   - **Legacy (kode læst):** `APP_TriggerBootloader()` skriver mønstret og laver software-reset med
+     det samme (`user.h:54-62`), også fra ON med relæerne trukket (`app.c:255`). Derefter gælder
+     BTL 1.0's pin-init, som ikke kan ændres i 2.0 (§1).
+   - **2.0:** Ingen mute og ingen OFF-sekvens før resettet (`AppCore_TriggerBootloader`, [D333]
+     `app_core.c:156-160`). Det er en serviceindgang og ikke normal drift.
+   - **Forudsætning:** RA5 nås kun af en tekniker (§11.7). Kan en bruger nå den, genåbnes punktet.
 
 ---
 
 ## 11. Åbne spørgsmål
 
 1. **Mappenavn** for 2.0 ved siden af `App/` (#1).
-2. **Bit-identitet:** Er `v1.0` bit-identisk med det image, der er i marken? (#1)
+2. **Bit-identitet:** Er `v1.0` bit-identisk med det image, der er i marken? (#1) Det samme gælder
+   BTL 1.0, hvis hex fryses til den samlede hex (§9.61).
 3. **Kendte fejl og klager fra marken** er ikke samlet (#1). De er gode testcases.
 4. **dB pr. relæ-trin på Helios** (område 3). Level match vises som "+N dB" pr. trin, og
    digital gain lægger 6 trin til. Det tyder på 1 dB pr. trin ([D333]: 2 dB), men det står
@@ -2306,6 +2436,9 @@ _Udfyldes under område 2–9._
    - _Område 9 (§9.52):_ Hvor kommer VBUS på USB-porten fra, og er den forsynet i ON og på
      AC-fault-skærmen? 1.0 kører aldrig USB i ON, så koden siger intet om det. Er VBUS strømbegrænset
      i hardware ([D333]: PTC MICROSMD050F-2)?
+7. **Bootloader-pinnen RA5** (§4.13, §10.7). Hvad er `ACTIVATE_BOOTLOADER` fysisk på Helios:
+   en serviceknap, en jumper eller et testpunkt? Kan en bruger nå den udefra? Er der en pull-up
+   i hardware, eller bygger BTL 1.0 og appen på MCC's interne pull-up?
 
 ---
 

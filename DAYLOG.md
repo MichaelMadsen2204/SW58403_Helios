@@ -23,8 +23,11 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (§4.11, §9.40–9.43, se log "område 7, læst"). **Område 8 er gennemgået**
    (§4.12, §9.44–9.51, §10.5, se log "område 8, læst"). **Område 9 (USB-servicestick, §4.14) er
    læst**, og alle 10 fund er placeret (§9.52–9.58, §10.6, se log "område 9, læst"). §4.14 er skrevet
-   (FR-1300–1303). **Område 9 er gennemgået.** Alle 9 områder er nu gennemgået. Det næste er §4.13
-   (bootloader-kontrakt) og de tomme afsnit §1, §5–§7.
+   (FR-1300–1303). **Område 9 er gennemgået.** Alle 9 områder er nu gennemgået. **§4.13
+   (bootloader-kontrakt) er gennemgået** (kontrakttabel, FR-1100, FR-1101, §9.59–9.61, §10.7, se
+   log "§4.13"). Det næste er de tomme afsnit §1 og §5–§7.
+   - **Åbent fra §4.13:** Hvad er RA5 fysisk (§11.7)? §10.7 bygger på, at kun en tekniker kan nå
+     den.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -51,6 +54,28 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (§4.13)
+
+Bootloader-kontrakten er læst i `On_Off_Control.c`, `ac_check.c`, `app.c`, `user.h`, `app_mz.ld` og
+`postbuild.cmd` på `v1.0` og i `BTL/src`. [D333] FR-1100, `app_core.c`, `drv_sysio.c`,
+`check_btl_contract.py` og `postbuild.cmd` er læst på `origin/main` (`fe1787d`, intet nyt siden).
+BTL-001–017 er læst.
+
+- **Bindingerne fra #1 holder** og står nu som tabel i §4.13.
+- **Fund 1:** Der er ingen debounce, og et tryk kan gå tabt (ISR-skrivning til `appData.state`, 26
+  andre skrivere). **Placeret: §9.59** (som [D333] FR-1100, 20 ms TIM-22, også i boot-stien).
+- **Fund 2:** Der resettes uden ordnet OFF. **Placeret: §10.7** (som 1.0 og [D333], forudsat at RA5
+  kun nås af en tekniker, §11.7).
+- **Fund 3:** `app_mz.ld:124-125` reserverer de øverste 16 B og ikke triggeren. **Placeret: §9.60**
+  (som [D333]: `.persist` på `0x80000000` deler adresse med triggeren, og magic ≠ mønster).
+  **Rettelse:** Linkerscriptet rettes *ikke*. Det er genereret og identisk med [D333]'s. "Rettes" i
+  #1 var forkert.
+- **Fund 4:** Postbuild har ingen vagt og laver ingen samlet hex. **Placeret: §9.61** (som [D333],
+  frossen BTL 1.0-hex).
+- **Nyt krav, ikke fra [D333]:** Postbuild afviser en `firmwareVersion`, der ikke er `<maj>.<min>`
+  (FR-1101), for BTL 1.0 overser filen tavst.
+- **Til #2:** BTL-010, 011, 014 og 015 og den manglende nedgraderingsspærre.
 
 ### 2026-11-27 (område 9, læst)
 
@@ -94,8 +119,6 @@ Servicesticken er læst i `app_usb_cmd.c` (uændret siden `v1.0`), `tasks.c:93-1
 - **Rettet bagefter:** §9.3 er bragt i overensstemmelse med §9.51, og SVC-009 er rettet i
   `claude-setup` (`d9495a4`).
 - **Rettet:** §9.2 sagde "USB kun i standby". Den henviser nu til §9.52.
-- **Fælles erfaring:** Tilføjelsen "Efterprøvet i Helios" i SVC-009 er forkert, for CPU'en sover i
-  standby. Rettelsen er foreslået og venter på Michael.
 - **Bemærket fra område 8:** §9.3 ("altid aktiv", fejlramme) modsagde §9.51 (bytes uden for
   vinduet kasseres). **Rettet:** §9.3 dækker nu kun RX-tømning, og §9.51 gælder.
 

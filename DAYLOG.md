@@ -91,10 +91,12 @@ UART-testinterfacet er læst i `uart_control.c` (uændret siden `v1.0`), `app.c`
   1. Der er ingen boot-linje og ingen hændelseslinjer (HIL-003). [D333] har `[BOOT]`, `$D` til fri
      tekst (§9.29) og BTL-version (§9.45). **Placeret: §9.44** (`[BOOT]` og `$D` som [D333], ingen
      BTL-linje).
-  2. Rammevalideringen er løs (`$1:0X;` udføres). [D333] §9.9 kræver cifre.
-  3. OERR ryddes ikke.
-  4. `$2:00;` sætter curInp til 0.
-  5. `$5` opdaterer hverken appData eller EEPROM og kvitterer ugyldige værdier.
+  2. Rammevalideringen er løs (`$1:0X;` udføres). [D333] §9.9 kræver cifre. **Placeret: §9.45.**
+  3. OERR ryddes ikke. **Placeret: §9.46** (som [D333], med `[UART] rx-fejl <n>`).
+  4. `$2:00;` sætter curInp til 0. **Placeret: §9.47** (0 som over maxInp, og mute-blinket
+     følger §9.23).
+  5. `$5` opdaterer hverken appData eller EEPROM og kvitterer ugyldige værdier. **Placeret:
+     §9.48** (via settings som [D333], 0 = front på linjen, og over 1 ignoreres).
   6. Værdier over 9 afvises tavst, og fejlteksterne er fri tekst.
   7. TX blokerer uden timeout, og der er 10 ms og 50 ms blokerende ventetid. [D333] §9.35 binder
      TX pr. byte.

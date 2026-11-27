@@ -1890,6 +1890,47 @@ adfærd, er markeret **(adfærd)**.
         så linjen ville altid vise det samme. Den tages op igen med BTL 2.0 (#2).
     - **Synlig adfærd:** Der kommer nye linjer uden `#` på UART'en. Et teststativ, der læser
       1.0's output, skal ignorere linjer, der ikke starter med `#`.
+45. **(adfærd) Streng validering af UART-rammen** (beslutning 2026-11-27, §4.12), som [D333]
+    §9.9.
+    - **Legacy (kode læst):** Kun `$`, `:` og `;` på position 0, 2 og 5 tjekkes
+      (`uart_control.c:330`). Værdien læses med `sscanf("$%c:%2hhu;")` (`:332`), som stopper ved
+      første ikke-ciffer og alligevel melder to felter. `$1:0X;` udføres derfor som volumen 0, og
+      `$1: 5;` og `$1:+5;` som volumen 5.
+    - **2.0:** Begge værdi-tegn skal være `0`–`9`. Ellers er rammen ugyldig, der svares med
+      fejltekst, og intet udføres.
+    - **Synlig adfærd:** Gyldige rammer opfører sig som i 1.0. Kun korrupte rammer afvises.
+46. **(fejl) RX-fejl ryddes, så UART'en ikke dør** (beslutning 2026-11-27, §4.12), som [D333]
+    `drv_uart1`.
+    - **Legacy (kode læst):** `UART1_ErrorGet()` kaldes aldrig, og OERR ryddes aldrig. På PIC32
+      stopper modtagelsen, mens OERR er sat, så én overrun gør kommando-UART'en død til næste reset.
+      Det er ikke målt.
+    - **2.0:** Ved hver poll tjekkes RX-fejl med `UART1_ErrorGet()`, som rydder OERR, FERR og PERR
+      og tømmer FIFO'en. Hver fejl tælles og skrives som `[UART] rx-fejl <n>` gennem
+      fritekst-kontakten (§9.44).
+    - **Synlig adfærd:** En tabt ramme giver ingen kvittering, men interfacet virker igen ved næste
+      ramme.
+47. **(fejl) `$2:00;` vælger ikke input 0** (beslutning 2026-11-27, §4.12).
+    - **Legacy (kode læst):** `if (value <= appData.maxInp)` (`uart_control.c:348`) accepterer 0, så
+      `curInp` bliver 0. En værdi over maxInp ignoreres, og kvitteringen viser det aktuelle input.
+      Begge veje kører alligevel mute, relæ og 50 ms ventetid (`:353-357`).
+    - **2.0:** 0 behandles som en værdi over maxInp. Input ændres ikke, og kvitteringen viser det
+      aktuelle input. Om et ignoreret eller uændret input stadig giver mute og relæskift, følger
+      afgørelsen af §9.23.
+    - **Synlig adfærd:** `$2:00;` svarer med det aktuelle input i stedet for `#2:00;`.
+48. **(fejl) `$5` sætter IR-kilden som menuen** (beslutning 2026-11-27, §4.12), som [D333]
+    `app_uartcmd` (`AppSettings_SetIrSource`).
+    - **Legacy (kode læst):** `$5:00;` sætter pinden til front og `$5:01;` til bag
+      (`uart_control.c:399-404`). `appData.irSource` og EEPROM ændres ikke, så IR-kilde-skærmen viser
+      det gamle valg, og næste tænding gendanner det (`On_Off_Control.c:626-628`). Kvitteringen
+      gentager alle værdier, også `$5:07;`, som intet gør.
+    - **2.0:**
+      - Linjens kodning bevares: 0 = front og 1 = bag. Bemærk, at EEPROM'en har den modsatte
+        kodning (1 = front, §4.11).
+      - RAM, pin og EEPROM sættes sammen. Der gemmes straks, for der er ingen skærm at forlade
+        (FR-1012).
+      - En værdi over 1 ændrer intet, og kvitteringen viser den faktiske indstilling, som i §9.47.
+    - **Synlig adfærd:** Valget overlever sluk, og menuen viser det. `$5:07;` svarer med den
+      aktuelle indstilling.
 
 ---
 

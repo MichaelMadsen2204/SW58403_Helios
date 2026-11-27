@@ -86,7 +86,9 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
   (`app.c:116`).
 - UART-kommandoer (`uartCtrl`) behandles kun i `APP_STATE_IDLE` og på action- og
   simple-view-skærmen efter opstart (`app.c:192`, `:214`, `:280`).
-- Amp-status (U26-INT) polles kun i `APP_STATE_IDLE` (`app.c:273-278`).
+- Amp-status (U26-INT) polles i `APP_STATE_IDLE` uden for opstart (`app.c:273-278`) og via
+  `checkStatus()` i seks skærmtilstande (`app.c:191`, `:211`, `:223`, `:230`, `:237`, `:244`).
+  Detaljer i §4.6.
 - UI-skift sker delvist via en request-mekanisme (`appData.reqUiAction`, `handleUIRequests`,
   `app.c:73-142`), men ikke konsekvent (se interrupt-kontekst nedenfor).
 
@@ -547,7 +549,182 @@ grænser og tider er Helios' egne.
 
 ### 4.6 DAC-modul og U26
 
-_Område 4._
+_Område 4._ [D333]-løsningen er `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_dac` og
+`app_audio_ctrl` (§8). Den er bænkbevist med Audio Precision (D333 #53, M9 DAC-paritet).
+Forskelle fra [D333] står i klammer.
+
+**Navne.** I Helios-koden er U26 mainboardets expander på 0x23. I [D333] hedder den
+tilsvarende expander U21, og `drv_u26` er DAC-modulets expander på 0x20. 2.0 skal bruge ét
+entydigt navn for hver (§11.5).
+
+**Legacy: hardware (kode læst).**
+
+- **DAC-modulet** sidder på I2C2:
+  - DAC'en på 0x48.
+  - DIR'en på 0x10, som kun bruges til at læse Fs.
+  - DAC-modulets expander på 0x20 (`app.h:162-164`).
+
+  Helios-koden navngiver ikke chippene. [D333]'s handoff kalder dem ES9039MSPRO og AK4118A,
+  og registrene er de samme.
+- **DAC-modulets expander:**
+  - **Udgange** (register 0x06): bit 0 er I2S-mux (1 = DIR, 0 = USB), bit 1 er async/sync, og
+    bit 2 er DSD-lavpas (`Dac_Control.c:96-115`, `:965-986`).
+  - **Indgange** (16 bit fra register 0x00): USB-Fs i bit 0–3, lock i bit 8, DIR-int i bit 10,
+    USB-opladning i bit 11, DSD i bit 12, USB tilsluttet i bit 13 og DAC-mute i bit 14
+    (`Dac_Control.c:9-29`).
+- **U26** (0x23, 3 bytes; `MB_IOexp_U26_Control.c:12-42`, `:152-167`):
+  - **Byte 0:** input-relæer og output-mute (§4.2). Output-mute er aktiv lav (`:328-329`).
+  - **Byte 1:** inputs. Bit 0 er phono-modul, og bit 1 er DAC-modul (`app.h:128-130`). Kun
+    bit 2 har pull-up og interrupt (`:160-166`). Hvad bit 2 er forbundet til, står ikke i
+    koden (§11.6).
+  - **Byte 2:** bit 0 er MM/MC, bit 1 er −6 dB, bit 2 og 3 er LED for phono- og DAC-modul
+    (aktiv lav), og bit 4–6 er green bias GB0–GB2.
+- **Registerskrivninger med flere bytes:** U26-koden sætter autoincrement-bitten (0x80) i
+  registeradressen (fx 0x84, 0x8C). Koden til DAC-modulets expander gør ikke. Den læser 2
+  bytes fra 0x00 og skriver 2–4 bytes til 0x54 og 0x60 uden bitten (`Dac_Control.c:56-76`,
+  `:990-1019`). Om chippen alligevel autoincrementer, står ikke i koden (§11.6). [D333 har
+  kopieret init-tabellen 1:1.]
+
+**Legacy: detektion og init (kode læst).**
+
+- **Detektion:** Modulerne genkendes ved ON5 ud fra U26 byte 1, og modul-LED'erne sættes
+  (`On_Off_Control.c:976-977`, `MB_IOexp_U26_Control.c:184-202`).
+  - `getAmpStatus()` opdaterer flagene ved hvert senere interrupt, men initialiseringen
+    køres ikke igen. Moduler kan altså ikke skiftes, mens enheden er tændt.
+- **Init med DAC-modul** (`handleDacConfiguration`, `MB_IOexp_U26_Control.c:509-524`):
+  1. `maxInp = 11`, modul-LED'en tændes, og DAC-modulets expander initialiseres.
+  2. Async sættes, og koden venter 500 ms.
+  3. `dacSetup()` (`Dac_Control.c:205-230`): GPIO, systemtilstand, TDM, volume-rate
+     op og ned, PCM-filter, receiver (S/PDIF, derefter I2S), S/PDIF-valg og format (I2S-PCM).
+     Derefter automute fra, mute-rampe fra, DAC tændt, master/slave-kick, I2S-mux til DIR,
+     1 ms og automute til.
+  4. `dirSetup()`: DIR register 1 = 0x5A.
+
+  Hele sekvensen blokerer i ca. 800 ms, heraf 2 × 150 ms efter volume-rate
+  (`Dac_Control.c:898`, `:907`). [D333: samme sekvens med watchdog-strobe under ventetiden.]
+- **Phono-konfiguration:** `handlePhonoConfiguration()` (`MB_IOexp_U26_Control.c:486-507`)
+  kaldes ikke, for kaldet er udkommenteret (`On_Off_Control.c:1045`). ON5 sætter
+  `maxInp = 5` (`:978`), og kun DAC-grenen hæver den. Med phono-modul og uden DAC-modul er
+  `maxInp` derfor 5, når inputtet valideres (`:1020`), så et gemt input 6 bliver til input 1.
+  Det betyder også, at phono-tiden på 23 s i ON5 (`:1031`) aldrig bruges uden DAC-modul.
+  `maxInp` sættes korrekt senere, når action-skærmen vises (`screen_Action.c:473-484`). Det er
+  kode læst og ikke set på bænken.
+
+**Legacy: valg af digitalt input (kode læst).** `setDigitalInput()` (`Dac_Control.c:926-962`)
+blokerer:
+
+1. DAC-kanalen mutes (register 86 = 0xFF), og koden venter 75 ms og derefter 100 ms.
+2. **USB (input 7):** receiver = I2S, S/PDIF-valg = 0x04 og format = I2S-PCM. Der unmutes
+   ikke her. Det gør lock-gaten.
+3. **S/PDIF (input 8–11):** receiver = S/PDIF, register 89 = `(inp − 2) · 16 + 4`, format =
+   S/PDIF, DIR register 3 = `0x48 + inp − 8`, register 89 igen og BCK-invert-toggle
+   (2 × 5 ms). Derefter venter koden 30 ms og unmuter (75 ms). I alt ca. 290 ms.
+
+   Unmute sker uden at se på `muteFlg`. Ved user-mute på et digitalt input mutes kun
+   DAC-kanalen, og relæerne bliver lukket (`MB_IOexp_U26_Control.c:259-268`). Ved digital →
+   digital springes det analoge mute over (§4.2). Skiftes der under user-mute til et
+   S/PDIF-input, spiller det derfor, selvom mute vises (kode læst, ikke set på bænken).
+
+[D333: samme registersekvens, ikke-blokerende og med retry (D333 §9.28).]
+
+Ved et digitalt input lukker `setInputRelay()` desuden DAC-kanalen og åbner den igen, hver
+gang holdet udløber, og ved volumenændringer fra niveau 0 (`MB_IOexp_U26_Control.c:412-433`,
+`Level_Control.c:102`). Det koster 150 ms blokering hver gang. Her unmutes USB, når kablet
+er tilsluttet, uden at se på lock.
+
+**Legacy: status og lock-gate (kode læst).**
+
+- **Poll:** `checkStatus()` kører, når `IO_EXP_INT` er lav eller `ampStatusChangeFlg` er
+  sat (`MB_IOexp_U26_Control.c:203-212`):
+  1. U26 byte 1 læses.
+  2. Er der DAC-modul, og er inputtet digitalt, læses DAC-modulets expander.
+  3. `handleDacStatusChange()` kaldes.
+- **`handleDacStatusChange()`** (`Dac_Control.c:134-181`):
+  - **USB-input:** Er kablet ikke tilsluttet, sættes receiveren til S/PDIF, og ellers til
+    I2S. Ved DSD sættes DSD-lavpas efter settingen. Ved PCM slås lavpas fra, og PCM-filtret
+    skrives. Der unmutes kun, når kablet er tilsluttet, der er lock, og der ikke er
+    user-mute.
+  - **S/PDIF-input:** Kun PCM-filtret skrives. Der er ingen lock-gate, og DAC'ens automute
+    klarer stilheden.
+
+  [D333: samme adfærd (D333 FR-404, FR-405 og §10).]
+
+**Legacy: settings (kode læst).**
+
+- **PCM-filter 1–7:** register 88 = 0xB8, 0xB9, 0xBA, 0xBC, 0xBD, 0xBE eller 0xBF. Er værdien
+  ugyldig, bruges filter 4 (`Dac_Control.c:339-382`). Navnene er (`:507-536`):
+  1. Minimum phase.
+  2. Linear phase, apodizing.
+  3. Linear phase, fast roll-off.
+  4. Linear phase, slow roll-off.
+  5. Minimum phase, fast roll-off.
+  6. Minimum phase, slow roll-off.
+  7. Minimum phase, slow roll-off, low dispersion.
+
+  Filtret kan ikke vælges ved USB-DSD.
+- **DSD-lavpas:** bit 2 på DAC-modulets expander. Det vises og kan vælges kun ved USB-DSD
+  (`IR_control.c:382`, `Dac_Control.c:641-676`).
+- **Digital gain:** Er det sat til "0 dB" (`digiGain = 1`), lægges 6 relæ-trin til. Er det
+  sat til "−6 dB" (`digiGain = 0`), lægges intet til (`Level_Control.c:45-62`). Der skrives
+  ikke til noget DAC-register. [D333: +3 trin ved 2 dB pr. trin, dvs. også 6 dB. Det bekræfter
+  1 dB pr. trin på Helios (§11.4).]
+- **Betjening:**
+  - Settings ændres på skærmen Digital Setup og via IR.
+  - Med IR går filtret rundt fra 7 til 1 (`IR_control.c:366-369`). På touch stopper det ved
+    1 og 7 (`Screen_Digital_Setup.c:66-75`).
+  - Settings gemmes, når skærmen forlades, og ved OFF (`:78`, `On_Off_Control.c:1107`) på
+    EEPROM-adresse 0x07–0x0A (`eeProm_Functions.c:349-362`).
+- **`dsdFilter`** (0x08) gemmes, men bruges ikke. `dacSetDSDFilter()` og begge knapper er
+  tomme (`Dac_Control.c:686-689`, `Screen_Digital_Setup.c:63-64`).
+
+**Legacy: Fs-visning (kode læst).**
+
+- **USB:** Fs-indekset fra bit 0–3 på DAC-modulets expander slås op i `usbFsTabel`
+  (32–384 kHz og DSD64–512). Er kablet ikke tilsluttet, vises "USB UNPLUGGED". Visningen
+  holdes 350 ms efter en ændring (`screen_Action.c:1023-1056`, `ui_globals.c:78-93`).
+- **S/PDIF:** Fs læses i DIR register 7, bit 4–7, af `DIR_FS_AcqTask`
+  (`screen_Action.c:1142-1301`):
+  - Ved lock-flanken resettes og initialiseres DIR'en igen.
+  - Den første læsning sker efter 30 ms, og en ugyldig læsning prøves igen efter 20 ms, op
+    til 10 gange.
+  - Efter 3 fejlede runder initialiseres DIR'en igen, højst 3 gange pr. lock og med 600 ms
+    imellem.
+  - Under lock overvåges Fs hvert 200 ms.
+  - Uden lock vises "NO SIGNAL".
+- **Kun på action-skærmen:** Opgaven kører kun på action-skærmen, og højst hvert 200 ms
+  (`screen_Action.c:1363-1367`). Re-init af DIR'en ved lock-flanken sker derfor ikke, hvis
+  lock kommer, mens en anden skærm vises.
+- **Tabellen er for kort:** `dirGetFs()` giver 0–15, men `dacFsTabel` har kun 15 indgange
+  (`ui_globals.c:61-76`). Værdien 15 læser uden for tabellen.
+- **Død kode:** `lockedButNoFs_Callback` (`screen_Action.c:320-324`) registreres ingen
+  steder, så grenen i `updateActionScreen` (`:1415-1423`) kan ikke nås.
+
+**Legacy: green bias (kode læst).** `U26_UpdateGreenBiasFromLevel()`
+(`MB_IOexp_U26_Control.c:365-389`):
+
+- Den kaldes ved hver `UpdateVolume()` (`Level_Control.c:40`) og ved ON4
+  (`On_Off_Control.c:954`). ON1 sætter OFF-mønstret (`:886`).
+- Den bruger `curLvl` og ikke det effektive relæ-indeks.
+- Hvilken tærskeltabel der bruges, vælges på skærmen Green Bias (`Screen_GB_SETUP.c`):
+
+  | Setting | LOW | MID | HIGH |
+  |---|---|---|---|
+  | 0 (`GB1`) | ≤ 26 | 27–46 | 47–84 |
+  | 1 (`GB2`) | ≤ 38 | 39–58 | 59–84 |
+
+- **Mønstre på GB2..GB0:** OFF = 001, MID = 010, LOW = 100 og HIGH = 000. Kommentarerne
+  passer ikke til koden: HIGH kaldes "GB1+GB2" (`app.h:215`), failsafe-mønstret 001 kaldes
+  "alt slukket" (`:359`), og filens hoved er i tvivl om polariteten (`:5-6`) (§11.6).
+
+**Legacy: fejl-triggere (kode læst).** Der er ingen:
+
+- U26 læses kun for moduldetektion. Fejlbits var tænkt i den gamle `getAmpStatus`, men de
+  er udkommenteret (`MB_IOexp_U26_Control.c:678-679`).
+- `errorCheckFlg` sættes og ryddes, men læses ingen steder (`On_Off_Control.c:974`,
+  `:1110`).
+- `saveErrorStatus()` og `getErrorStatus()` (`eeProm_Functions.c:371-386`) kaldes ingen
+  steder.
+- FR-106 har derfor ingen fejl-triggere fra legacy.
 
 ### 4.9 IR-fjernbetjening
 
@@ -758,6 +935,18 @@ _Udfyldes under område 2–9._
    digital gain lægger 6 trin til. Det tyder på 1 dB pr. trin ([D333]: 2 dB), men det står
    ikke i koden. Tabellernes mapping fra bit til relæ og dB er heller ikke dokumenteret
    ([D333] har samme åbne punkt).
+   - _Område 4:_ Digital gain er +6 trin på Helios og +3 trin ved 2 dB pr. trin på [D333].
+     Begge giver 6 dB, og det støtter 1 dB pr. trin.
+5. **Expander-navne** (område 4). U26 betyder mainboardets expander i Helios og DAC-modulets
+   expander i [D333] (§4.6). Navnene i 2.0 vælges, før driverne skrives.
+6. **Hardware-spørgsmål til DAC-modulet og U26** (område 4). Kan besvares ud fra
+   diagrammet, eller ved at dumpe registrene over UART på bænken:
+   - Hvad sidder på U26 byte 1 bit 2, som er den eneste pin med interrupt? Er det
+     interruptet fra DAC-modulets expander?
+   - Autoincrementer DAC-modulets expander uden bit 0x80? Hvis ikke, læses bit 8–14 af
+     statusordet (lock, USB tilsluttet m.m.) forkert, og init-skrivningerne til 0x54 og 0x60
+     rammer kun ét register.
+   - Hvad er green bias' polaritet, og hvad er HIGH-mønstret (000)?
 
 ---
 

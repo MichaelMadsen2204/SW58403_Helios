@@ -2558,7 +2558,10 @@ _Udfyldes under område 2–9._
      BTL 1.0's pin-init, som ikke kan ændres i 2.0 (§1).
    - **2.0:** Ingen mute og ingen OFF-sekvens før resettet (`AppCore_TriggerBootloader`, [D333]
      `app_core.c:156-160`). Det er en serviceindgang og ikke normal drift.
-   - **Forudsætning:** RA5 nås kun af en tekniker (§11.7). Kan en bruger nå den, genåbnes punktet.
+   - **RA5** er en knap bag et lille hul i bagpladen ved USB-stikket, som betjenes med en
+     papirclips, som i [D333] (Michael, 2026-11-27). Brugeren kan nå den og bruger den selv ved en
+     opdatering med apparatet tændt. Et tryk under afspilning kan give et klik i højttalerne. Det
+     accepteres som i [D333], fordi det kræver en bevidst handling (beslutning 2026-11-27).
 
 ---
 
@@ -2592,9 +2595,10 @@ _Udfyldes under område 2–9._
      (§4.14, §9.52).
    - ~~Strømbegrænsning af VBUS.~~ **Afgjort:** VBUS går gennem en MICROSMD050F som i [D333]. Efter
      PTC'en måles den halve VBUS-spænding på `USB_VBUS_ANA` (RE4), og 2.0 overvåger den (FR-1304).
-7. **Bootloader-pinnen RA5** (§4.13, §10.7). Hvad er `ACTIVATE_BOOTLOADER` fysisk på Helios:
-   en serviceknap, en jumper eller et testpunkt? Kan en bruger nå den udefra? Er der en pull-up
-   i hardware, eller bygger BTL 1.0 og appen på MCC's interne pull-up?
+7. **Bootloader-pinnen RA5** (§4.13, §10.7).
+   - ~~Hvad den er fysisk.~~ **Afgjort 2026-11-27:** En knap bag et hul i bagpladen ved USB-stikket,
+     som betjenes med en papirclips, som i [D333]. Brugeren kan nå den (§10.7).
+   - **Åbent:** Er der en pull-up i hardware, eller bygger BTL 1.0 og appen på MCC's interne pull-up?
 
 ---
 

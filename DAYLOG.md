@@ -24,6 +24,10 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    deep sleep i standby (`POWER_DS_WakeupSourceGet`) eller mister forsyningen som på D333.
    Brug kommentaren på #1 (BTL 1.0's bindinger og kravene fra de fælles erfaringer) og #3
    (kendte fejl i 1.0).
+   **Genbrug af D333 (PRD §1):** Findes der en testet løsning i D333
+   (`D:/MPLAB/d333/SW_U3_REBUILD`, samme MCU), så genbruges den. Find derfor D333's løsning
+   for hvert område, og gennemgå 1.0 for Helios-specifikke forskelle. Ved konflikt gælder
+   D333's kode og Helios 1.0's parametre, som brugeren kan mærke.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 3. **Rettelser til fælles erfaringer, venter på Michaels ja:**
    - SVC-009 siger, at Helios kan resette under afspilning. Det sker ikke, for USB behandles
@@ -43,6 +47,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
   Guarden i `app.c:187` er død kode. Det hele står i PRD §3.2 og §9.
 - Beslutning: UART-testinterfacet er altid aktivt i 2.0, i alle tilstande (PRD §9.3).
+- Beslutning: Helios 2.0 genbruger D333's testede løsninger. Ved konflikt gælder D333's kode
+  og Helios' parametre, som brugeren kan mærke (PRD §1 og §8).
 - Ventende: claude-setup er 8 commits bagud og har ucommittede ændringer i `PLAN.md` og
   `README.md` på denne maskine. Ny erfaring efter vandmærket: WDT-005 (MX-specifik).
 

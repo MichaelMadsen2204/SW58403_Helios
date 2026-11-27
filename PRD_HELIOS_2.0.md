@@ -27,6 +27,17 @@ _Udfyldes. Kilde: beslutningerne i #1 (2026-11-26)._
 - **Auto Standby** er den eneste nye funktion og følger [D333] FR-107, FR-815 og FR-816 1:1.
 - 2.0 ligger i en ny mappe ved siden af `App/` med eget MPLAB-projekt og `tests/`. `App/`
   (1.0) forbliver byggbar. Mappenavnet fastlægges her (åbent, §11).
+- **Genbrug af D333 (beslutning 2026-11-27):** Helios og D333 kan sammenlignes på mange
+  områder. Findes der en løsning i D333, som er implementeret og testet, bruger Helios 2.0
+  den. Kilden er D333's rebuild af U3 (`D:/MPLAB/d333/SW_U3_REBUILD`, samme MCU). Gennemgangen
+  af 1.0 skal derfor især finde de Helios-specifikke forskelle i hardware og adfærd.
+  - **Ved konflikt** genbruges D333's kode og mekanisme, mens parametre, som brugeren kan
+    mærke (tider, niveauer, tekster, skærmforløb), følger Helios 1.0. Eksempel: D333 dæmper
+    efter 10 s, men Helios beholder 8 s (TIM-17).
+  - En afvigelse, der ikke kan klares med en parameter, lægges frem for Michael og noteres
+    i §9 eller §10.
+  - Kun en løsning, der er bænkbevist eller i drift på D333, tæller som testet. Hvad der
+    genbruges fra D333, og med hvilken status, står i §8.
 - **Uden for scope:** bootloaderen (BTL 1.0 genbruges uændret, se §4.13; BTL 2.0 er #2),
   hardwareændringer og ny funktionalitet ud over paritet og Auto Standby.
 
@@ -193,7 +204,7 @@ _Område 9._
 | ID | Parameter | Værdi | Reference |
 |---|---|---|---|
 | TIM-16 | `T_ACTIONVIEW` | 6 s (D333: 6 s) | `app.h:84` |
-| TIM-17 | `T_DIM` | 8 s (D333: 10 s) | `app.h:85` |
+| TIM-17 | `T_DIM` | 8 s (Helios-værdi bevares; D333: 10 s) | `app.h:85` |
 | TIM-xx | `T_SCREENSWAP` | 300 ms | `app.h:86` |
 | TIM-xx | Debounce on/off-knap og 12V-link | 20 ms | `On_Off_Control.c:277`, `:743`, `:760` |
 | TIM-xx | IR-poll-vindue ved opvågning | 500 ms | `IR_control.c:34` |
@@ -219,7 +230,16 @@ _Udfyldes. Skabelon: [D333] §7. Bænktests skal automatiseres, hvor det kan lad
 
 ## 8. Migrerings- og genbrugskilder
 
-_Udfyldes under område 2–9._
+D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [LEGACY].
+
+| Emne | Kilde | Genbrug | Status i D333 |
+|---|---|---|---|
+| Eksekveringsmodel, superloop med flag-ISR'er | [D333] NFR-010/011, `SW_U3_REBUILD` | Mekanisme 1:1 | _tjekkes_ |
+| DMT-watchdog og reboot-loft | [D333] NFR-013 | 1:1 | Bænkbevist 2026-10-21 ([D333] NFR-013) |
+| Auto Standby | [D333] FR-107, FR-815, FR-816 | 1:1 (#1) | _tjekkes_ |
+
+_Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
+issues, før genbruget besluttes._
 
 ---
 

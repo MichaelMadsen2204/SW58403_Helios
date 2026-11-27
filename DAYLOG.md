@@ -22,13 +22,12 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (2026-11-27, se log). **Område 6 er gennemgået.** **Område 7 er gennemgået**
    (§4.11, §9.40–9.43, se log "område 7, læst"). **Område 8 er gennemgået**
    (§4.12, §9.44–9.51, §10.5, se log "område 8, læst"). **Område 9 (USB-servicestick, §4.14) er
-   læst**, og fund 1–5 er placeret i §9.52–9.56. Fund 6–10 mangler (se log "område 9, læst"), og så §4.14.
+   læst**, og alle 10 fund er placeret (§9.52–9.58, §10.6, se log "område 9, læst"). §4.14 mangler.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
-   - **Nyt i D333 siden 2026-10-28, som Helios skal tage stilling til:** §9.38 gammel ACK
-     fjernes før kommandofilen (#417, §4.14). FR-861/§9.42 og FR-850/§9.43 er afgjort
-     (Helios §9.37, §9.38), og §9.40 og E31 er afgjort med FR-830.
+   - **Nyt i D333 siden 2026-10-28:** Alt er afgjort. §9.38's gamle ACK (#417) blev afgjort med
+     §9.57, FR-861/§9.42 og FR-850/§9.43 med Helios §9.37 og §9.38, og §9.40 og E31 med FR-830.
    - Foreslå §9.35 (baglys på overlayet) og §9.36 (menu-exit ved annullering) tilbage til D333.
    - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
    - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
@@ -81,9 +80,14 @@ Servicesticken er læst i `app_usb_cmd.c` (uændret siden `v1.0`), `tasks.c:93-1
   6. **Den gamle kvittering** truncates og slettes ikke, før kommandofilen læses. [D333] #417.
   7. **Læsefejl:** `(size_t)-1` i en `uint32_t` tolkes som data, så den gamle buffer parses
      (`:295-296`). En tom fil giver ingen kvittering, og ACK-handlet tjekkes ikke (`:396`).
+     **Fund 6 og 7 placeret samlet: §9.57** (som [D333], #417 er hermed afgjort for Helios).
   8. **SN** er udkommenteret, og kvitteringen har intet SN.
   9. [D333]'s `ERROR` og `ERROR=CLEAR`: Helios har ingen gemt fejlstatus (§9.17).
+     **Fund 8 og 9 placeret samlet: §9.58** (begge udgår. SN valgt af Michael, ERROR følger af, at
+     der ingen gemt fejlbyte er).
   10. **Ingen synlig respons** ved fejl eller succes. [D333] har kun loggen (#253) (SVC-005).
+      **Placeret: §10.6** (bevares, kun log som [D333]).
+- **Alle 10 fund er placeret.**
 - **Rettet:** §9.2 sagde "USB kun i standby". Den henviser nu til §9.52.
 - **Fælles erfaring:** Tilføjelsen "Efterprøvet i Helios" i SVC-009 er forkert, for CPU'en sover i
   standby. Rettelsen er foreslået og venter på Michael.

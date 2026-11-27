@@ -2109,7 +2109,7 @@ adfærd, er markeret **(adfærd)**.
       - Aliaset `VOLT` og værdierne `1` og `0` accepteres. BOM håndteres ikke.
     - **2.0:** Som [D333] FR-1301, uden Helios' ekstra stavemåder:
       - Kommandoerne er `FW`, `VOLTAGE=HIGH|LOW` og `BOOT`. `=` og `:` gælder begge, og der skelnes
-        ikke mellem store og små bogstaver. Om `ERROR` kommer med, står i DAYLOG (område 9, fund 9).
+        ikke mellem store og små bogstaver. `ERROR` kommer ikke med (§9.58).
       - Hele filen parses, før noget udføres. Én ugyldig, for lang (over 64 tegn) eller
         ikke-printbar linje afviser hele filen med `ERROR: Invalid command at line <n>: <linje>`.
       - Modstridende VOLTAGE afvises. En tom fil giver `No commands found`. En fil over 1 KB afvises
@@ -2138,6 +2138,37 @@ adfærd, er markeret **(adfærd)**.
       - Rækkefølgen af linjerne følger [D333], med 1.0's etiketter.
     - **Synlig adfærd:** Kvitteringen har nye linjer (STATUS, ERROR, ACTION). De gamle etiketter er
       uændrede, så værktøjer, der læser dem, virker stadig.
+57. **Filhåndtering og den gamle kvittering som i [D333]** (beslutning 2026-11-27, §4.14), FR-1302,
+    [D333] #417 og SVC-003.
+    - **Legacy (kode læst, `app_usb_cmd.c`):**
+      - `584_ACK.RTF` åbnes med `SYS_FS_FILE_OPEN_WRITE_PLUS` og truncates (`:396`). Handlet tjekkes
+        ikke, så en fejlet åbning først opdages ved skrivningen.
+      - En gammel kvittering slettes aldrig. En kørsel, der fejler før skrivningen, efterlader
+        sticken med det gamle svar, måske fra en anden enhed.
+      - `SYS_FS_FileRead` returnerer `(size_t)-1` ved fejl. I `uint32_t nBytesRead` er det større
+        end 0, så fejlen tolkes som data, og den gamle buffer parses (`:295-306`).
+      - En manglende kommandofil giver unmount uden besked (`:283-285`, `:440-450`). En tom fil
+        giver ingen kvittering (`:399-403`).
+    - **2.0:** Som [D333] (`drv_usbmsd`, bænkbevist):
+      - Ved hvert behandlet mount fjernes en eksisterende `584_ACK.RTF`, *før* kommandofilen læses.
+        "Ingen fil" er normalt. En ægte fjernelsesfejl logges, og behandlingen fortsætter.
+      - Kvitteringen skrives med fjern, opret, skriv og luk. En luk-fejl er en fejl, og en afbrudt
+        skrivning efterlader ingen fil og ikke en halv.
+      - En læsefejl er en fejl og aldrig data. En manglende kommandofil logges.
+      - Logteksterne følger [D333] med Helios' filnavne og går gennem fritekst-kontakten (§9.44).
+    - **Service-procedure:** Slet `584_ACK.RTF` på sticken, før den sættes i. Så betyder "ingen
+      kvittering" altid "intet svar".
+    - **Synlig adfærd:** En fejl giver ingen kvittering i stedet for en gammel eller halv kvittering.
+58. **SN og ERROR kommer ikke med på sticken** (beslutning 2026-11-27, §4.14), som §9.17 og §9.26.
+    - **SN (legacy, kode læst):** Ifølge headeren gemmer `SN:584dddd` serienummeret
+      (`app_usb_cmd.c:10`). Handleren og SN-linjen i kvitteringen er udkommenteret (`:122-143`,
+      `:174-175`, `:335-339`). SN sættes og læses kun via UART (§4.12).
+    - **ERROR:** [D333]'s `ERROR` og `ERROR=CLEAR` læser og rydder FR-515's gemte fejlbyte. Helios har
+      ingen gemt fejlstatus. FR-515 gælder ikke (§4.10), 0x51:0x00 er reserveret (§9.17), og FR-830
+      gemmer intet.
+    - **2.0:** Ingen `SN:`- eller `ERROR`-kommando og ingen SN-linje i kvitteringen. En sådan linje
+      afvises som ugyldig (§9.55).
+    - **Synlig adfærd:** Ingen. 1.0 gjorde heller intet med `SN:`. Den ignorerede bare linjen.
 
 ---
 
@@ -2177,6 +2208,16 @@ _Udfyldes under område 2–9._
    - Svarene er en del af kontrakten med teststativer til 1.0, og de går ikke gennem
      fritekst-kontakten (§9.44). [D333] bevarer `uart read error` og tier ved en ukendt
      kommando.
+6. **Servicesticken giver ingen respons på displayet** (beslutning 2026-11-27, §4.14), som 1.0 og
+   [D333] (#253, accepteret tab).
+   - **Legacy (kode læst):** `app_usb_cmd.c` viser intet på display eller LED. `LED1_Off()` ved
+     unmount (`:243`) er den eneste udgang.
+   - **2.0:** Svaret er kvitteringen på sticken. Fejl i læsning, fjernelse og skrivning ses kun i
+     `[USB]`-linjerne gennem fritekst-kontakten (§9.44, §9.57).
+   - Teknikerens symptom på en fejl er, at sticken står uden `584_ACK.RTF` (§9.57).
+   - SVC-005 ("fejl og succes skal se forskellige ud") er opfyldt af kvitteringen (`STATUS`) og
+     af, at der ingen fil er ved en fejl. Et overlay er fravalgt, fordi det ville være ny
+     GUI-funktionalitet (§1).
 
 ---
 

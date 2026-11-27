@@ -118,7 +118,8 @@ _Udfyldes, når modulopdelingen kendes (efter område 2–9). Skabelon: [D333] �
   skriver.
 - **NFR-011:** Ingen blokerende delays i normal drift. Ventetider er state-machine-tilstande
   med sammenligning af tidsstempler. Undtagelser markeres `// CONVENTION-EXCEPTION:` og står
-  her. Område 2: sleep-kaldet og UART-drænet før sleep (§4.1). _(Område 5: IR-sampling er
+  her. Område 2: sleep-kaldet og UART-drænet før sleep (§4.1). Område 4: DAC-init i ON5
+  (FR-400). _(Område 5: IR-sampling er
   kandidat, som i [D333].)_
 - **NFR-012:** Alle I²C-transaktioner har eksplicit timeout og returnerer en statuskode
   (I2C-001/005; legacy: #3).
@@ -163,7 +164,7 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 | 1 | §3.2 Eksekveringsmodel | `main.c`, `app.c`, `app.h`, `tasks.c` | Gennemgået 2026-11-27 |
 | 2 | §4.1 Power | `On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c` | Gennemgået 2026-11-27 |
 | 3 | §4.2–4.3 Input, level, level match | `Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c` | Gennemgået 2026-11-27 |
-| 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | |
+| 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | Gennemgået 2026-11-27 |
 | 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | |
 | 6 | §4.10 GUI | `screen_Action.c` og øvrige `Screen_*.c` | |
 | 7 | §4.11 Persistens | `eeProm_Functions.c` | |
@@ -284,7 +285,7 @@ tidsstempler, ikke `SYS_TIME`-callbacks. Trin, rækkefølge og tider er Helios' 
     (§9.7).
   - (e) Auto Standby (FR-107).
 
-  Eventuelle fejl-triggere fastlægges i område 4.
+  Der er ingen fejl-triggere fra DAC-modulet eller U26 (§4.6).
 - **FR-107 (Auto Standby):** 1:1 som [D333] FR-107. Nedtællingen løber kun i RUNNING, dvs.
   fra ON7 er nået og til en OFF-sekvens starter. **Udløber den, mens 12V-linket er aktivt,
   behandles det som en manuel sluk** (FR-121; beslutning 2026-11-27). [D333] har ikke det
@@ -401,7 +402,7 @@ Inputs, relæbits og tider er Helios' egne.
   - Når holdet udløber, unmutes der kun, hvis niveauet er over 0 eller inputtet er AV, og
     der ikke er user-mute.
   - Legacy's blokerende ventetid på 20 ms bliver en tilstand.
-- **FR-203 (DAC-sekvens ved digitalt skift):** fastlægges i område 4.
+- **FR-203 (DAC-sekvens ved digitalt skift):** står i §4.6.
 - **FR-204 (−6 dB):** Relæet er til på input 4 og 5.
 - **FR-206 (persistens):** Input gemmes efter §9.8. Adressen fastlægges i område 7.
 - **FR-207 (valg):**
@@ -726,6 +727,70 @@ er tilsluttet, uden at se på lock.
   steder.
 - FR-106 har derfor ingen fejl-triggere fra legacy.
 
+**Krav til 2.0.** Mekanismen er [D333]'s `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_dac` og
+`app_audio_ctrl` (§8). Registersekvenserne er legacy's, som [D333] har kopieret 1:1. Inputs,
+tabeller og tider er Helios' egne.
+
+- **FR-203 (DAC-sekvens ved digitalt skift):** Sekvensen er en del af transition-mute'en
+  (FR-202) og blokerer aldrig (NFR-011).
+  1. DAC-kanalen mutes (register 86 = 0xFF), og ventetiden på 75 + 100 ms er tilstande.
+  2. **USB (input 7):** receiver = I2S, S/PDIF-valg = 0x04 og format = I2S-PCM.
+  3. **S/PDIF (input 8–11):** receiver = S/PDIF, register 89 = `(inp − 2) · 16 + 4`,
+     format = S/PDIF, DIR register 3 = `0x48 + inp − 8`, register 89 igen og
+     BCK-invert-toggle (2 × 5 ms) og 30 ms.
+  4. Kanalen efterlades mutet. Den unmutes kun i `svc_mute` (§9.13, FR-404).
+
+  En fejlet skrivning prøves igen efter §9.19.
+- **FR-400 (init):** Kun når DAC-modulet er detekteret i ON5 (FR-407), i samme rækkefølge som
+  legacy (§4.6):
+  1. DAC-modulets expander initialiseres, og async sættes.
+  2. Der ventes 500 ms.
+  3. `dacSetup()`-sekvensen, med automute fra under init og til til sidst.
+  4. `dirSetup()`: DIR register 1 = 0x5A.
+
+  Init blokerer i ca. 800 ms med watchdog-strobe under ventetiden, som [D333]. Det er en
+  undtagelse fra NFR-011.
+- **FR-401 (PCM-filter):**
+  - Filter 1–7 skrives til register 88 efter tabellen i §4.6. En ugyldig værdi giver
+    filter 4.
+  - Filtret gælder USB-PCM og S/PDIF og kan ikke vælges ved USB-DSD.
+  - Det vælges på skærmen Digital Setup og via IR (§10.2).
+  - Det gemmes, når skærmen forlades. Adressen fastlægges i område 7.
+- **FR-402 (DSD-lavpas og digital gain):**
+  - DSD-lavpas er bit 2 i DAC-modulets expander. Det vises og kan vælges kun ved USB-DSD.
+  - Digital gain er FR-302 (+6 relæ-trin). Der skrives ikke til noget DAC-register.
+  - Begge vælges på skærmen og via IR og gemmes som FR-401.
+- **FR-403 (status):**
+  - Statusordet (16 bit fra register 0x00 i DAC-modulets expander) har bittene fra §4.6.
+  - Det læses ved `IO_EXP_INT` og periodisk, når et digitalt input er valgt, som [D333]
+    FR-403.
+  - Læsningen afhænger af autoincrement (§11.6).
+- **FR-404 (USB-lock-gate, ufravigelig):** På USB-inputtet unmutes DAC-kanalen kun, når kablet
+  er tilsluttet, der er lock, holdet er udløbet, og der ikke er user-mute (§9.13). Gaten
+  evalueres ved hver statusændring. S/PDIF gates ikke på lock. Det klarer DAC'ens automute
+  (§4.6).
+- **FR-405 (USB tilsluttes eller fjernes):** På USB-inputtet skiftes receiveren automatisk
+  mellem I2S og S/PDIF. DSD-lavpas eller PCM-filter skrives igen efter den aktuelle tilstand.
+- **FR-406 (Fs-visning):**
+  - **USB:** Fs-indekset fra bit 0–3 slås op i USB-tabellen (32–384 kHz og DSD64–512). Er
+    kablet ikke tilsluttet, vises "USB UNPLUGGED".
+  - **S/PDIF:** Fs kommer fra Helios' tilstandsmaskine i `svc_dac` med tiderne fra legacy
+    (§9.15). Uden lock vises "NO SIGNAL".
+  - Visningen holdes 350 ms efter en ændring.
+  - En værdi uden en indgang i tabellen vises som "NA" (§9.16).
+  - Mens et skift venter på retry (§9.19), vises "NO SIGNAL".
+- **FR-407 (moduldetektion):**
+  - Phono- og DAC-modul genkendes i ON5 ud fra U26 byte 1, bit 0 og bit 1.
+  - Modul-LED'erne (byte 2, bit 2 og 3, aktiv lav) følger detektionen.
+  - Moduler kan ikke skiftes, mens enheden er tændt, som i legacy.
+  - `maxInp` afledes af begge moduler (§9.14).
+- **FR-410 (green bias, Helios-specifik):**
+  - Trinnet skrives til U26 byte 2, bit 4–6, med mønstrene fra §4.6 (polaritet: §11.6).
+  - Det beregnes ud fra `curLvl` (§10.3), og på et AV-input ud fra 66 (§9.18).
+  - Tærskeltabellen vælges med settingen 0 eller 1 på skærmen Green Bias. Adressen
+    fastlægges i område 7.
+  - Trinnet opdateres ved hver volumenændring og i ON4. ON1 sætter OFF-mønstret.
+
 ### 4.9 IR-fjernbetjening
 
 _Område 5._
@@ -793,6 +858,12 @@ _Område 9._
 | TIM-xx | Make-before-break: venten pr. skrivning (D333 TIM-09: 1 ms pr. fase) | 2 ms × 6 skrivninger | `Level_Control.c:133-164` |
 | TIM-xx | Volumen-repeat: første / gentagelse (D333 TIM-15: 400 / 120 ms) | 400 / 120 ms | `screen_Action.c:32-33` |
 | TIM-xx | Volumen-repeat: stop uden touch-opdatering / maks. antal gentagelser | 250 ms / 84 | `screen_Action.c:34-35` |
+| TIM-xx | DAC-init: settling før `dacSetup` (D333 TIM-20: 500 ms) / efter volume-rate | 500 ms / 2 × 150 ms (blokerende, FR-400) | `MB_IOexp_U26_Control.c:509-524`, `Dac_Control.c:898`, `:907` |
+| TIM-xx | Digitalt skift: efter kanal-mute / BCK-toggle / før unmute | 75 + 100 ms / 2 × 5 ms / 30 ms | `Dac_Control.c:926-962` |
+| TIM-xx | Digitalt skift: retry-interval / maks. antal (D333 §9.28) | 500 ms / 10 | §9.19 |
+| TIM-xx | Fs-visning: hold efter ændring | 350 ms | `screen_Action.c:1023-1056` |
+| TIM-xx | S/PDIF-Fs: første læsning / retry / maks. retries | 30 ms / 20 ms / 10 | `screen_Action.c:1142-1301` |
+| TIM-xx | S/PDIF-Fs: DIR re-init maks. pr. lock / afstand / overvågning under lock | 3 / 600 ms / 200 ms | `screen_Action.c:1142-1301` |
 
 _Udvides under hvert område. Numre tildeles, når listen er komplet._
 
@@ -825,6 +896,9 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | Volumen-attenuator med make-before-break | [D333] FR-300–306, `drv_volctl`, `svc_volume` | Mekanisme. Helios har to expandere (L/R), indeks 0–84, tre MBB-faser og balance (§4.3) | Bænkbevist (D333 #54, M9-paritet med Audio Precision) |
 | Ikke-blokerende mute og inputskift med hold på 200/2000 ms | [D333] FR-202, FR-310–316, `svc_mute`, `svc_input`, `app_audio_ctrl` | Mekanisme. Helios' inputs, relæbits og −6 dB-inputs (§4.2) | Bænkbevist (D333 #54, #170, #174, #175) |
 | AV-bypass og level match i volumenkonteksten | [D333] FR-302, FR-355, `SvcVolume_SetContext` | Mekanisme. Helios' AV-inputs 3/4 og indeks 66 | Bænkbevist (D333 #169) |
+| DAC-modul: init, digitalt skift, lock-gate, filtre og status | [D333] FR-203, FR-400–406, `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_dac` | Mekanisme og registersekvenser 1:1. Helios' input-numre 7–11 og S/PDIF-Fs fra Helios' tilstandsmaskine (§9.15) | Bænkbevist (D333 #53, Audio Precision, lukket 2026-07-09) |
+| Retry af fejlet digitalt skift | [D333] §9.28, `svc_dac` | 1:1 (§9.19) | Host-verificeret (D333 #234) |
+| Green bias | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] (FR-410) | — |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._
@@ -987,6 +1061,16 @@ adfærd, er markeret **(adfærd)**.
       mens udgangen står højt.
     - **2.0:** På et AV-input vælges bias ud fra 66. På alle andre inputs bruges `curLvl`
       som i legacy (§10.3).
+19. **(adfærd) Et fejlet digitalt skift prøves igen** (beslutning 2026-11-27), som [D333]
+    §9.28.
+    - **Legacy:** `setDigitalInput()` skriver DAC-registrene uden at tjekke resultatet
+      (`Dac_Control.c:926-962`). Fejler en skrivning midtvejs, kan DAC'en blive mutet på det
+      gamle input, mens det nye vises.
+    - **2.0:** Fejler FR-203 eller lock-gaten (FR-404), husker `svc_dac` det ønskede input og
+      prøver hele DAC-delen igen hver 500 ms, højst 10 gange. En NACK eskalerer straks. Et nyt
+      skift starter med fuldt budget, og et skift til et analogt input annullerer ønsket.
+    - **Synlig adfærd:** Mens skiftet venter eller er eskaleret, vises "NO SIGNAL" (FR-406).
+    - **Evidens:** host-verificeret i [D333] (`test_svc_dac.c`, #234).
 
 ---
 

@@ -15,19 +15,14 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–3 er gennemgået. I område 4 er
-   legacy og afvigelser færdige (§4.6, §9.13–9.18, §10.2–10.3). Næste skridt er **krav til
-   2.0 i §4.6**:
-   - FR-203 (DAC-sekvens ved digitalt skift).
-   - DAC-krav efter [D333] FR-400–406 med Helios' parametre: init, PCM-filter, DSD-lavpas,
-     digital gain +6, lock-gate, USB-tilslutning og Fs-visning.
-   - Green bias.
-   - FR-106: ingen fejl-triggere fra legacy.
-   - TIM-rækker i §5 og §8-rækker med D333's bænkstatus (#53).
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–4 er gennemgået. Næste skridt er
+   **område 5 (IR, §4.9)**: `IR_control.c` og `Screen_IR_Source_Setup.c`. NFR-011 nævner
+   IR-sampling som kandidat til undtagelse, som i [D333].
+   - **Åbent fra område 4:** §11.6 har tre hardwarespørgsmål til Michael (U26 bit 1.2,
+     autoincrement på DAC-modulets expander, polariteten på green bias). FR-403 og FR-406
+     afhænger af autoincrement. Poll-intervallet for DAC-status i FR-403 er ikke fastlagt.
 
-   Derefter sættes område 4 til "Gennemgået" i tabellen i §4, og vi går videre til område 5
-   (IR). §11.6 har tre hardwarespørgsmål til Michael (U26 bit 1.2, autoincrement på
-   DAC-modulets expander, polariteten på green bias). Arbejdsgang:
+   Arbejdsgang:
    - Hver legacy-adfærd mærkes `kode læst fil:linje`.
    - Det, der ligner en fejl, placerer Michael i §9 (rettes) eller §10 (bevares), én ad gangen.
    - Brug kommentaren på #1 (BTL 1.0's bindinger og kravene fra de fælles erfaringer) og #3
@@ -39,6 +34,15 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 4, krav)
+- Krav til 2.0 i §4.6: FR-203, FR-400–406 efter [D333], FR-407 (moduldetektion) og FR-410
+  (green bias). FR-106 har ingen fejl-triggere fra DAC/U26. Område 4 er gennemgået.
+- **Beslutninger:**
+  - DAC-init i ON5 blokerer med watchdog-strobe som [D333] (undtagelse i NFR-011).
+  - Et fejlet digitalt skift prøves igen som [D333] §9.28 (§9.19).
+- §5 har seks nye TIM-rækker, og §8 har rækker for DAC-modul (bænkbevist, D333 #53), retry
+  (host-verificeret, D333 #234) og green bias.
 
 ### 2026-11-27 (område 4)
 - Område 4 (DAC-modul, U26, digital setup og green bias): legacy er beskrevet i §4.6 (kode

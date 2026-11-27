@@ -166,7 +166,7 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 | 2 | §4.1 Power | `On_Off_Control.c`, `ac_check.c`, `voltageSetting.c`, `ui_voltage_Error.c` | Gennemgået 2026-11-27 |
 | 3 | §4.2–4.3 Input, level, level match | `Level_Control.c`, `Screen_Input_Level_Match.c`, `Screen_Volume_Settings.c` | Gennemgået 2026-11-27 |
 | 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | Gennemgået 2026-11-27 |
-| 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | |
+| 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | Gennemgået 2026-11-27 |
 | 6 | §4.10 GUI | `screen_Action.c` og øvrige `Screen_*.c` | |
 | 7 | §4.11 Persistens | `eeProm_Functions.c` | |
 | 8 | §4.12 UART-testinterface | `uart_control.c` | |
@@ -932,7 +932,70 @@ står i klammer.
   `eeProm_Functions.c:333-336`).
 - Restore Settings sætter pinden efter `irSource` (`Screen_Restore_Settings.c:44-47`).
   Standardværdien fastlægges i område 7.
-- [D333 har ingen IR-kilde.]
+- [D333 FR-705 har samme skærm og samme kodning, men gemmer valget straks (§9.27).]
+
+**Krav til 2.0.** Mekanismen er [D333]'s `drv_ir_rc5`, `app_ir` og `gui_remote_view` (§8).
+Numrene følger [D333] FR-700–705. FR-706 og FR-707 er Helios-specifikke.
+
+- **FR-700 (dekoder):**
+  - RC5 samples i CN-ISR'en på faldende flanke som [D333] (§9.20), med
+    `CONVENTION-EXCEPTION` (NFR-010, NFR-011).
+  - En bus-guard udsætter dekodningen under I²C (§9.12).
+  - Kun system 16 accepteres.
+  - RC5X-feltbitten giver kommandoerne 64–127, og de sendes videre.
+  - En ugyldig frame kasseres uden ventetid (§9.25).
+  - Tiderne bevises på Helios' modtager (§5, §9.20).
+- **FR-701 (kommandoer):**
+  - Kommandotabellen i §4.9 med betingelserne fra legacy. Undtagelsen er §9.23: et
+    inputvalg, der intet ændrer, gør intet.
+  - Kode 21 og ukendte koder ignoreres (§9.26).
+  - Mute virker kun ved `curLvl > 0` eller på AV-input.
+  - PCM-filtret går fra 7 til 1 (§10.2).
+- **FR-702 (toggle og hold):**
+  - Et nyt tryk kræver, at togglebitten skifter.
+  - Hold accepteres kun for volumen op og ned, efter [D333] FR-702 med 200 ms (§9.25).
+  - **Undtagelse (Helios):** I standby accepteres 12 og 123 uanset toggle, og i ON
+    accepteres 124 uanset toggle, som i legacy. 12 i ON kræver nyt tryk.
+- **FR-703 (gating):**
+  - **Standby:** kun 12 og 123 (§9.21).
+  - **Opstart:** kun 12 og 124 fra ON4 (§9.22).
+  - **Menu:** kun 12 og 124.
+  - **Mens et IR-overlay vises:** inputvalg, volumen, mute og input op/ned ignoreres.
+  - **Eksklusivt overlay:** Står Filter-, DSD-LP- eller Gain-overlayet fremme, ignoreres de
+    to andre overlay-kommandoer.
+- **FR-704 (overlays):**
+  - På simple view viser første tryk på Filter, DSD-LP eller Gain kun overlayet i 3 s.
+    Tryk på overlayet udfører handlingen og genstarter timeren (§9.24). Efter timeout vises
+    simple view igen.
+  - På action-skærmen udføres handlingen direkte.
+  - **Display (15):** Fra action eller simple view vises `displaySimpleView` i 3 s med
+    retur til forrige skærm. På `displaySimpleView` cykler `dispMode` 0–5, og timeren
+    genstartes. `dispMode` gemmes ved retur (område 7).
+- **FR-705 (IR-kilde):**
+  - `IR_SOURCE` RH11: 1 = front, 0 = bag, standardværdi front.
+  - Sættes fra EEPROM 0x05 ved opstart og ved Restore Settings.
+  - Valget på skærmen IR Source lægges straks ud på pinden og gemmes straks (§9.27).
+- **FR-706 (power og opvågning, Helios-specifik):**
+  - 12 slukker i ON og tænder i standby. 123 tænder i standby, og 124 slukker i ON
+    (FR-106 b).
+  - I standby søges tænd-koden inden for noise-guarden (FR-120). Der er intet separat
+    IR-vindue (§9.25).
+  - CN-interruptet på `IR_RC5` er slået til i ON og i IDLE efter en manuel sluk med aktivt
+    12V-link (FR-120).
+- **FR-707 (display slukket eller dæmpet, Helios-specifik):** Legacy-adfærden i §4.9
+  bevares.
+  - **Slukket display:**
+    - 12 og 124 udføres uden at tænde baglyset.
+    - Filter, DSD-LP og Gain på en simple-lignende skærm behandles, og displayet tændes
+      ved skærmskiftet.
+    - Alle andre kommandoer tænder kun displayet. Frames med samme toggle sluges, indtil et
+      nyt tryk kommer.
+  - **Dæmpet display:** Displayet tændes, og kommandoen udføres.
+  - **Efter en accepteret kommando** genstartes T_DIM og på action-skærmen T_ACTIONVIEW.
+    Auto Standby-nedtællingen nulstilles også, som [D333] FR-107.
+
+**UART-orakel:** Hver accepteret IR-kommando skal give en hændelseslinje på UART'en, så
+bænktesten i §9.20 kan automatiseres (HIL-003). Formatet fastlægges i område 8.
 
 ### 4.10 GUI
 
@@ -1042,7 +1105,8 @@ D333-løsninger går forud for nyudvikling (§1). Helios-parametre kommer fra [L
 | DAC-modul: init, digitalt skift, lock-gate, filtre og status | [D333] FR-203, FR-400–406, `drv_es9039`, `drv_ak4118`, `drv_u26`, `svc_dac` | Mekanisme og registersekvenser 1:1. Helios' input-numre 7–11 og S/PDIF-Fs fra Helios' tilstandsmaskine (§9.15) | Bænkbevist (D333 #53, Audio Precision, lukket 2026-07-09) |
 | Retry af fejlet digitalt skift | [D333] §9.28, `svc_dac` | 1:1 (§9.19) | Host-verificeret (D333 #234) |
 | Green bias | Ingen i [D333] | Helios-specifik, bygges ud fra [LEGACY] (FR-410) | — |
-| IR: RC5-dekoder, toggle, hold og overlays | [D333] FR-700–704, `drv_ir_rc5`, `app_ir`, `gui_remote_view` | Dekodermekanismen 1:1 med RC5X og Helios' tider (§9.20). Resten _afgøres i område 5._ Helios har brug for RC5X (123/124), power og opvågning fra standby samt IR-kilde | Bænkbevist (D333 #56, #162, #280 del B) |
+| IR: RC5-dekoder, toggle, hold og overlays | [D333] FR-700–704, `drv_ir_rc5`, `app_ir`, `gui_remote_view` | Mekanismen 1:1 med RC5X og Helios' tider (§9.20–9.25). Power-koderne og opvågning fra standby er Helios-specifikke (FR-706) | Bænkbevist (D333 #56, #162, #280 del B) |
+| IR-kilde | [D333] FR-705, `app_settings`, `gui_ir_source` | 1:1, gemmes straks (§9.27) | _tjekkes_ |
 
 _Udvides under område 2–9. "Tjekkes" betyder, at status skal læses i D333's repo eller
 issues, før genbruget besluttes._
@@ -1294,6 +1358,16 @@ adfærd, er markeret **(adfærd)**.
       monitor-funktion, så 2.0 ignorerer kode 21. [D333 bruger kode 21 til monitor.]
 
     Ingen adfærd ændres.
+27. **(adfærd) IR-kilden gemmes straks som [D333]** (beslutning 2026-11-27).
+    - **Legacy:** Valget lægges straks ud på `IR_SOURCE`, men gemmes først i EEPROM 0x05, når
+      der trykkes "tilbage til menu" (`Screen_IR_Source_Setup.c:13-33`). Slukkes enheden på
+      skærmen, bruges den gamle modtager efter næste tænd. EEPROM-værdien valideres ikke, så
+      enhver værdi ≠ 0 giver front (`On_Off_Control.c:625-628`).
+    - **2.0:** [D333] FR-705 1:1 (`app_settings`, `gui_ir_source`). Valget lægges ud på
+      pinden og gemmes straks. Kodningen er 1 = front og 0 = bag, og standardværdien er front.
+      Begge dele er ens i Helios og [D333].
+    - **Ugyldig EEPROM-værdi:** Hvordan den tolkes, afgøres i område 7. [D333] tolker kun 1
+      som front. Om den validerer ved indlæsning, er ikke tjekket.
 
 ---
 
@@ -1317,14 +1391,6 @@ _Udfyldes under område 2–9._
    - Digital gain, level match og balance flytter ikke bias-trinnet
      (`MB_IOexp_U26_Control.c:365-389`).
    - Tærsklerne er de samme som i 1.0 (§4.6). Undtagelsen er AV (§9.18).
-4. **IR-kilden gemmes ved "tilbage til menu", og ≠ 0 betyder front** (beslutning 2026-11-27).
-   - Valget lægges straks ud på `IR_SOURCE`, men gemmes først i EEPROM 0x05, når der
-     trykkes "tilbage til menu" (`Screen_IR_Source_Setup.c:13-33`). Slukkes enheden på
-     skærmen, bruges den gamle modtager efter næste tænd.
-   - EEPROM-værdien valideres ikke. Enhver værdi ≠ 0 giver front (`On_Off_Control.c:625-628`),
-     også 0xFF i en tom EEPROM.
-   - Hvornår settings gemmes, afgøres samlet for alle settings-skærme i område 7. Indtil da
-     følger IR-kilden 1.0.
 
 ---
 

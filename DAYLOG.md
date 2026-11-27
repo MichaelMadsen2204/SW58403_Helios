@@ -15,10 +15,14 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Næste skridt
 
-1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–4 er gennemgået. Område 5 (IR,
-   §4.9) har legacy og afvigelser færdige (§9.20–9.26, §10.4). Næste skridt er **krav til
-   2.0 i §4.9**. Brug D333's numre FR-700–704, og tilføj Helios' power-koder (12/123/124),
-   opvågning og IR-kilde. Derefter følger område 6 (GUI).
+1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. Næste skridt er
+   **område 6 (GUI, §4.10)**: `screen_Action.c` og de øvrige `Screen_*.c`.
+   - Tjek også NFR-021 i de øvrige `Screen_*.c`, GUI-001/002-idiomerne og Auto Standby
+     (FR-815, FR-816).
+   - Afgør, om genvalg af det aktuelle input fra touch heller ikke gør noget (§9.23).
+   - **Åbent fra område 5:** IR-tiderne skal bevises på Helios' modtager (§9.20).
+     UART-hændelseslinjen for IR fastlægges i område 8. Tolkningen af en ugyldig
+     EEPROM-værdi for IR-kilden afgøres i område 7.
    - **Åbent fra område 4:** §11.6 har tre hardwarespørgsmål til Michael (U26 bit 1.2,
      autoincrement på DAC-modulets expander, polariteten på green bias). FR-403 og FR-406
      afhænger af autoincrement. Poll-intervallet for DAC-status i FR-403 er ikke fastlagt.
@@ -36,6 +40,11 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 
 ## Log
 
+### 2026-11-27 (område 5, krav)
+- Krav til 2.0 i §4.9: FR-700–705 efter D333, FR-706 (power og opvågning) og FR-707
+  (display slukket eller dæmpet) er Helios-specifikke. Kravet om en UART-hændelseslinje pr.
+  IR-kommando er lagt videre til område 8. Område 5 er gennemgået.
+
 ### 2026-11-27 (område 5)
 - Legacy i §4.9: dekoder, toggle og hold, kommandotabel, overlays, display-wake, standby og
   opstart samt IR-kilde. D333's løsning er bænkbevist (#56, #162, #280 del B).
@@ -50,7 +59,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
   - §9.24: Overlay-timeren genstartes ved tryk.
   - §9.25: IR blokerer ikke.
   - §9.26: Død kode, og kode 21 ignoreres.
-  - §10.4: IR-kilden gemmes som i 1.0, og område 7 samler op.
+  - §9.27: IR-kilden gemmes straks som D333 FR-705. Først placeret i §10.4 under den forkerte
+    antagelse, at D333 ingen IR-kilde har.
 
 ### 2026-11-27 (område 4, krav)
 - Krav til 2.0 i §4.6: FR-203, FR-400–406 efter [D333], FR-407 (moduldetektion) og FR-410

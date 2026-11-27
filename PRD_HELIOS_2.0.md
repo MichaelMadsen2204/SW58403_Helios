@@ -1059,14 +1059,41 @@ _Område 6._ Auto Standby-overlay og menupunkt (FR-815, FR-816).
   `gui_system_error`, §9.41 i [D333] på `origin/main`), fx til I²C-busfejl. Kodetabellen til
   Helios står i FR-830.
 
-**Legacy-adfærd uden krav endnu (kode læst).** Kravene skrives sammen med [D333] FR-850/§9.43
-(MM/MC og ugyldig `pickupSel`) og FR-861/§9.42 (AV gråtonet i level match):
+**Legacy: pickup (kode læst).**
 
-- **Pickup MM/MC:** Ved et skift sættes niveauet til 0, valget gemmes, og U26 sættes. Så vises
-  en progressbar, der tæller til 100 med ét trin hver 250 ms, i alt 25 s
-  (`Screen_Pickup_Selection.c:49-74`).
-- **AV-skærmen:** Valgmulighederne er ingen, input 3 og input 4 som toggles. Valget gemmes på
-  `OnHide` (`Screen_AV_Setup.c`).
+- **Menupunktet** vises kun med phono-modul (`Screen_Main_Menu.c:68-69`).
+- **Valg:** Et tryk på MM eller MC ændrer kun valget i RAM (`Screen_Pickup_Selection.c:33-48`).
+- **Exit med ændring:** I denne rækkefølge (`Screen_Pickup_Selection.c:49-68`):
+  1. Begge relæbanker sættes til indeks 0 med blokerende ventetider. `curLvl` ændres ikke
+     (`setLevelZero`, `Level_Control.c`).
+  2. Valget gemmes på adresse `0x0B` (`eeProm_Functions.c:344-347`).
+  3. U26 byte 2 bit 0 skrives, hvor 1 = MM (`MB_IOexp_U26_Control.c:392-400`).
+  4. En progressbar tæller til 100 med ét trin hver 250 ms, i alt 25 s. Derefter vises
+     hovedmenuen (`Screen_Pickup_Selection.c:13-32`). Trinnet tælles op i en timer-callback, og
+     baren opdateres fra main-loopet (`app.c:234-239`).
+- **Exit uden ændring:** Hovedmenuen vises med det samme.
+- **OFF under stabiliseringen** stopper timeren (`On_Off_Control.c:330-331`). Valget er allerede
+  gemt og skrevet.
+- **Ved ON** skrives valget til U26 i ON5, hvis phono- eller DAC-modulet er monteret
+  (`On_Off_Control.c:1041-1044`). [D333: kun med phono-modul.]
+- **Default og ugyldig værdi:** En tom EEPROM giver MC (`pickupSelection = 0`,
+  `eeProm_Functions.c:450`, `app.h:157-158`). Relæet og menuen tester begge `== movingMagnet`
+  (`MB_IOexp_U26_Control.c:394`, `Screen_Pickup_Selection.c:79`), så enhver anden værdi giver
+  MC begge steder. Helios har derfor ikke den inkonsistens, som [D333] §9.43 retter.
+- **Restore** bevarer valget. `writeEEpromDefault()` nulstiller ikke `pickupSelection` (`:473`
+  er udkommenteret) og skriver den aktuelle værdi tilbage (`:410`).
+
+**Legacy: AV-skærmen (kode læst; `Screen_AV_Setup.c`).**
+
+- Input 3 og input 4 er toggles, som sætter og rydder bit i `avInp` (`:20-63`). None rydder
+  begge og er deaktiveret, når intet er valgt (`:66-79`).
+- Valget gemmes på adresse `0x06` ved hver `OnHide`, også uden ændring (`:99-102`,
+  `eeProm_Functions.c:328-331`).
+
+**Legacy: level match og AV (kode læst).** Alle inputs på skærmen er aktive og viser altid
+"+N dB", også et AV-input (`Screen_Input_Level_Match.c:86-91`, `:205-237`). Offsetten bruges ikke
+på AV (FR-355), så et justerbart "+N dB" på input 3 eller 4 er vildledende. Det er samme
+legacy-adfærd, som [D333] §9.42 retter.
 
 **Legacy: skærmkatalog (kode læst; `le_gen_init.h:40-62`).** Der er 23 skærme:
 
@@ -1123,7 +1150,7 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
   Forskelle fra [D333]:
   - Der er ingen monitor og ingen ventilator.
   - Green bias er altid synlig i menuen.
-  - AV-valget er ingen, input 3 eller input 4.
+  - AV-valget er ingen, input 3 og/eller input 4 (FR-855).
   - Der er to AC-fejlskærme: `leftPowerMissingScreen` og `wrongAcVoltageScreen` (FR-108).
 - **FR-810 (drift-skærme):** Følger [D333] FR-810.
   - Efter ON vises simple view, hvis det er slået til, og ellers action.
@@ -1154,6 +1181,30 @@ A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
   - **Annullering:** Enhver touch og enhver gyldig IR-frame annullerer slukningen og nulstiller
     nedtællingen (FR-107, FR-707). Derefter vises action. Var menuen åben, køres menu-exit
     (FR-882), så undermenuens værdi gemmes, og mute og niveau genskrives (§9.36).
+- **FR-850 (pickup, beslutning 2026-11-27):** Følger [D333] FR-850 med Helios' relæbit og tider.
+  - Menupunktet vises kun med phono-modul.
+  - Valget er MM eller MC, og default er MM (§9.37). Et tryk ændrer kun valget i RAM.
+  - Når skærmen forlades med en ændring, sættes relæ-indekset til 0 via `svc_volume` (som
+    [D333] FR-306, uden blokerende ventetid, FR-301). Derefter gemmes valget, og U26 byte 2
+    bit 0 skrives, hvor 1 = MM. Så kører stabiliseringsbaren i 25 s (TIM-xx, 100 × 250 ms) fra
+    tick, og bagefter vises hovedmenuen. Niveauet genskrives ved menu-exit (FR-882, FR-314).
+  - Uden ændring går exit direkte til hovedmenuen.
+  - OFF under stabiliseringen afbryder baren. Valget er allerede gemt og skrevet.
+  - Ved ON skrives det gemte valg til U26 i ON5, når phono- eller DAC-modulet er monteret, som
+    i 1.0.
+  - `SvcSettings_Load` erstatter en ugyldig værdi med MM i RAM, så relæ og menu stemmer
+    ([D333] §9.43). Byten rettes først ved næste gemning.
+  - Restore bevarer valget (§10.4). Adressen `0x0B` bekræftes i område 7 (§4.11).
+- **FR-855 (AV-skærm):** Input 3 og input 4 er toggles, og None rydder begge og er deaktiveret,
+  når intet er valgt. Valget gemmes, når skærmen forlades. Adressen `0x06` bekræftes i område 7.
+  Lydadfærden står i FR-355.
+- **FR-861 (AV i level match, beslutning 2026-11-27):** Følger [D333] FR-861 (§9.38).
+  - Et AV-input (3 eller 4) vises dæmpet med widget-alpha, uden nyt asset. Det kan ikke vælges,
+    og værdifeltet viser "AV" i stedet for "+N dB".
+  - App-laget afviser +/− på et AV-input.
+  - Den gemte offset bevares og gælder igen, når inputtet tages ud af AV.
+  - AV-tilstanden læses ved `OnShow`, fordi den ikke kan ændres, mens skærmen er åben.
+  - Default-valget er input 1. Det kan aldrig være AV.
 - **FR-830 (SYSTEM ERROR, beslutning 2026-11-27):** Følger [D333] FR-530 med samme tekst, niveauer,
   kvittering og navigation (`app_health`, `gui_system_error`, §9.33). Kodetabellen er tilpasset
   Helios' busser. På I2C1 sidder touch. På I2C2 sidder U26, EEPROM 0x50/0x51
@@ -1249,6 +1300,7 @@ _Område 9._
 | TIM-xx | ON-trin 6 / 7 | 1000 / 500 ms | `On_Off_Control.c:1062`, `:1092` |
 | TIM-xx | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
 | TIM-xx | Baglys-fade ind/ud (legacy blokerende, 2.0 fra tick, §9.31) | 40 × 50 ms | `Display_Backlight.c:4-24` |
+| TIM-xx | Pickup-stabilisering (D333 TIM-19: 25 s) | 100 × 250 ms = 25 s | `Screen_Pickup_Selection.c:64-65`, FR-850 |
 | TIM-xx | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
 | TIM-xx | AC-mismatch: LED skifter / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
 | TIM-xx | Inputskift: mute-hold kort / langt (D333 TIM-08: 200 / 2000 ms) | 200 / 2000 ms | `MB_IOexp_U26_Control.c:479` |
@@ -1640,6 +1692,18 @@ adfærd, er markeret **(adfærd)**.
     - **2.0:** Annullering viser stadig action. Var menuen åben, køres den normale menu-exit først:
       undermenuens `OnHide` gemmer, niveauet genskrives, og mute hæves efter FR-314.
     - **Synlig adfærd:** Brugeren lander på action med lyd, som efter Exit i menuen.
+37. **(adfærd) Pickup-default og ugyldig værdi giver MM** (beslutning 2026-11-27, FR-850), som
+    [D333] FR-850 og §9.43.
+    - **Legacy:** En tom EEPROM giver MC, og enhver værdi ud over 1 giver MC på både relæ og menu
+      (§4.10, kode læst).
+    - **2.0:** Default er MM. `SvcSettings_Load` erstatter en ugyldig værdi med MM i RAM.
+    - **Synlig adfærd:** Nye enheder og enheder med tom eller korrupt byte starter på MM. Enheder
+      med et gyldigt gemt valg mærker intet. Restore ændrer ikke valget (§10.4).
+38. **(adfærd) Level match dæmper AV-inputs** (beslutning 2026-11-27, FR-861), som [D333] §9.42.
+    - **Legacy:** Input 3 og 4 kan justeres og viser "+N dB", også når de er AV
+      (`Screen_Input_Level_Match.c:86-91`), selvom offsetten ikke bruges (FR-355).
+    - **2.0:** Et AV-input er dæmpet, kan ikke vælges og viser "AV". Den gemte offset bevares.
+    - **Synlig adfærd:** Kun på skærmen. Lyden er uændret.
 
 ---
 
@@ -1663,6 +1727,12 @@ _Udfyldes under område 2–9._
    - Digital gain, level match og balance flytter ikke bias-trinnet
      (`MB_IOexp_U26_Control.c:365-389`).
    - Tærsklerne er de samme som i 1.0 (§4.6). Undtagelsen er AV (§9.18).
+4. **Restore bevarer pickup-valget** (beslutning 2026-11-27).
+   - `writeEEpromDefault()` nulstiller ikke `pickupSelection` (`eeProm_Functions.c:473` er
+     udkommenteret) og skriver den aktuelle værdi tilbage (`:410`).
+   - Valget følger den monterede pickup og ikke en brugerpræference. Restore udløser derfor
+     hverken et relæskift eller 25 s stabilisering.
+   - Kun en tom eller ugyldig byte giver default, og det er MM i 2.0 (§9.37).
 
 ---
 

@@ -1065,6 +1065,49 @@ _Område 6._ Auto Standby-overlay og menupunkt (FR-815, FR-816).
 - **AV-skærmen:** Valgmulighederne er ingen, input 3 og input 4 som toggles. Valget gemmes på
   `OnHide` (`Screen_AV_Setup.c`).
 
+**Legacy: skærmkatalog (kode læst; `le_gen_init.h:40-62`).** Der er 23 skærme:
+
+| Gruppe | Skærme | Hvem viser den |
+|---|---|---|
+| Opstart | `splashScreen` | `le_gen_init.c:39`. Efter ON vises simple view eller action (`On_Off_Control.c:1072`, `:1081`) |
+| Drift | `actionScreen`, `simpleViewScreen` | Skiftet sker ved timeout og touch (se nedenfor) |
+| IR-overlays | `filterSimpleView`, `dsdLpSimpleView`, `dacGainSimpleView`, `displaySimpleView` | `handleUIRequests` (`app.c:75-106`), §4.9 |
+| Menu | `mainMenuScreen` og 10 undermenuer: `volSettingsScreen`, `displayIntensityScreen`, `irSourceScreen`, `digitalSetupScreen`, `inpLvlMatchScreen`, `renameInputsScreen` (→ `qwertyScreen`), `avInputScreen`, `restoreSettingScreen`, `pickupSelectScreen`, `greenBiasScreen` | `Screen_Main_Menu.c:24-61`. Alle undermenuer vender tilbage til hovedmenuen |
+| Fejl | `leftPowerMissingScreen`, `wrongAcVoltageScreen` | `showAcError` (`app.c:51-65`), `ac_check.c:140-143`, område 1 |
+| Ubrugt | `SN_SET`, `errorDisplay` | Ingen. Se beslutningerne ovenfor |
+
+**Legacy: drift-skærmene (kode læst).**
+
+- **Action → simple view:** Når `T_ACTIONVIEW` (6 s) udløber, skifter skærmen, hvis simple view
+  er slået til og menuen ikke er åben (`screen_Action.c:326-334`). Callbacken kalder
+  `legato_showScreen` i ISR (§3.2).
+- **Simple view → action:** Ved touch slukkes baglyset før skiftet (`Screen_SimpleView.c:78-86`).
+- **Skærmskift og baglys:** Baglyset står, og `setDisplayIntensity()` kaldes 300 ms
+  (`T_SCREENSWAP`) efter `OnShow` på action og simple view (`Display_Backlight.c:38-46`,
+  `screen_Action.c:769-775`).
+- **Menu ind:** Menuknappen sætter `UIREQ_GOTO_MENU` (`screen_Action.c:546-550`).
+  `handleUIRequests` muter, stopper display-timerne og inputskiftets mute-timer, viser menuen og
+  sætter `APP_STATE_IDLE` (`app.c:107-116`).
+- **Menu ud:** Med `UIREQ_EXIT_MENU` (`Screen_Main_Menu.c:19`) vises action. Niveauet genskrives
+  (AV-niveau eller `UpdateVolume`), hvis niveauet er over 0 eller AV er valgt, og der ikke er
+  mutet (`app.c:117-125`).
+- **I menuen:** Baglyset står på 100 %. Knapperne Digital og Pickup skjules uden modul
+  (`Screen_Main_Menu.c:65-77`), mens Green bias altid er synlig.
+
+**Legacy: display-modes (kode læst; `Screen_Display_Setup.c:14-45`, `screen_Action.c:336-369`).**
+
+- 100/75/50/25 % giver PWM 100/60/40/15.
+- Dim og off giver 100 % ved aktivitet. Når `T_DIM` (8 s) udløber, går dim til 15 % og off
+  til 0. Kun off sætter `dispSleepActiveFlg` (`:345` er udkommenteret), så IR ser dim som
+  dæmpet og off som slukket (§4.9).
+- I begge tilfælde vises `dispOnButton` på action-skærmen.
+
+**Legacy: omdøbning (kode læst; `Screen_Qwerty_Keypad.c`).** Navnet har 8 tegn. Tastaturet har
+A–Z, ÆØÅ, cifre og symboler. Navnet gemmes ved OK.
+
+**Legacy: fade (kode læst).** Fade ind og ud tager 40 × 50 ms og blokerer
+(`Display_Backlight.c:4-24`, kaldt fra `On_Off_Control.c:919` og `:1059`).
+
 ### 4.11 Persistens
 
 _Område 7._ EEPROM-layout fra 1.0 og ledige adresser til Auto Standby står i #1.
@@ -1121,6 +1164,7 @@ _Område 9._
 | TIM-xx | ON-trin 5, stabilisering (D333 `T_STAB`: 21/31 s) | 18 000 ms, phono 23 000 ms | `On_Off_Control.c:1028-1029` |
 | TIM-xx | ON-trin 6 / 7 | 1000 / 500 ms | `On_Off_Control.c:1062`, `:1092` |
 | TIM-xx | Logo-blink under opstart | 250 ms | `On_Off_Control.c:898` |
+| TIM-xx | Baglys-fade ind/ud (legacy blokerende) | 40 × 50 ms | `Display_Backlight.c:4-24` |
 | TIM-xx | OFF: mute → forsyninger af / → `#0:00;` / → sleep | 5 / 700 / 50 + 50 ms | `On_Off_Control.c:1112`, `:1121`, `:1137`, `:1168`, `:1179` |
 | TIM-xx | AC-mismatch: LED skifter / gentjek | 1000 / 200 ms | `ac_check.c:120-121` |
 | TIM-xx | Inputskift: mute-hold kort / langt (D333 TIM-08: 200 / 2000 ms) | 200 / 2000 ms | `MB_IOexp_U26_Control.c:479` |

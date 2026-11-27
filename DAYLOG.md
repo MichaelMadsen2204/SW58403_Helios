@@ -16,7 +16,8 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 ## Næste skridt
 
 1. **PRD for 2.0 (#1), branch `docs/prd-2.0`:** Område 1–5 er gennemgået. I område 6 (GUI) er
-   de 8 fund placeret (2026-11-27, se log). Legacy-afsnittet og kravene i §4.10 mangler.
+   de 8 fund placeret, og legacy-afsnittet i §4.10 er skrevet (2026-11-27, se log). Kravene til
+   2.0 i §4.10 mangler.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -25,7 +26,7 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
      level match (område 6), FR-850/§9.43 MM/MC og ugyldig `pickupSel` (område 6/7), §9.38
      gammel ACK fjernes før kommandofilen (#417, §4.14) og E31 ved et eskaleret DAC-valg
      (§9.19, område 6).
-   - **Område 6:** Skriv legacy-afsnittet i §4.10 og kravene til 2.0: skærmkatalog,
+   - **Område 6:** Skriv kravene til 2.0 i §4.10: skærmkatalog,
      display-modes, skærmskift med 300 ms, SYSTEM ERROR-skærmens kodetabel, Auto Standby
      (FR-815, FR-816), Pickup og AV (sammen med [D333] FR-850 og FR-861) og GUI-001 i §3.3
      (undersøg Helios' vælgerskærme).
@@ -49,6 +50,18 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
 2. **Forstudie for BTL 2.0 (#2):** Det er et separat spor, som ikke blokerer appen.
 
 ## Log
+
+### 2026-11-27 (område 6, legacy)
+
+Legacy-afsnittet i §4.10 er skrevet (Michael godkendte udkastet):
+
+- Skærmkatalog med 23 skærme (`le_gen_init.h:40-62`), drift-skærme og menu ind og ud
+  (`app.c:107-125`), display-modes, omdøbning og fade.
+- Det er præciseret, at kun off sætter `dispSleepActiveFlg` (`screen_Action.c:345` er
+  udkommenteret). Dim tæller derfor som dæmpet over for IR.
+- Fade (40 × 50 ms) er tilføjet i §5 som TIM-xx.
+- Undermenuernes egen adfærd er ikke læst. Den er dækket af område 3–5 eller hører til
+  område 7.
 
 ### 2026-11-27 (område 6, fund placeret)
 

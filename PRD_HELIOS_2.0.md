@@ -234,9 +234,9 @@ _Udfyldes område for område. Rækkefølge for gennemgangen:_
 | 4 | §4.6 DAC og U26 | `Dac_Control.c`, `MB_IOexp_U26_Control.c`, `Screen_Digital_Setup.c` | Gennemgået 2026-11-27 |
 | 5 | §4.9 IR | `IR_control.c`, `Screen_IR_Source_Setup.c` | Gennemgået 2026-11-27 |
 | 6 | §4.10 GUI | `screen_Action.c` og øvrige `Screen_*.c` | Gennemgået 2026-11-27 |
-| 7 | §4.11 Persistens | `eeProm_Functions.c` | |
-| 8 | §4.12 UART-testinterface | `uart_control.c` | |
-| 9 | §4.14 Servicestick | `app_usb_cmd.c` | |
+| 7 | §4.11 Persistens | `eeProm_Functions.c` | Gennemgået 2026-11-27 |
+| 8 | §4.12 UART-testinterface | `uart_control.c` | Gennemgået 2026-11-27 |
+| 9 | §4.14 Servicestick | `app_usb_cmd.c` | Gennemgået 2026-11-27 |
 
 ### 4.1 Power-styring
 
@@ -1415,7 +1415,60 @@ config-ord, RAM-trigger `0x80000000–0F`).
 
 ### 4.14 USB-servicestick
 
-_Område 9._
+_Område 9 (beslutning 2026-11-27)._ Sticken bruges til service: spændingssettingen kan rettes, og
+FW og boot-tæller kan læses. Mekanismen er [D333] FR-1300–1303 (§9.38 i [D333], bænkbevist), mens
+filnavne, titel og etiketter er Helios 1.0's.
+
+**Legacy (kode læst, `app_usb_cmd.c`, uændret siden `v1.0`).**
+
+- **Filerne:** `/mnt/myDrive1/584_CMD.TXT` læses, og `584_ACK.RTF` skrives (`:40-41`).
+- **Gating:** USB kører kun ved `!powerOnFlg` (`tasks.c:93-104`, rettet i hånden). Reelt er det
+  opstarten fra AC-check til ON4 og mismatch-skærmen, for i standby sover CPU'en (§9.52).
+- **Kommandoer:** `VOLTAGE` eller `VOLT` med `HIGH`, `LOW`, `1` eller `0`, `FW` og `BOOT`. Ukendte
+  linjer ignoreres tavst (§9.55). `SN:` er udkommenteret (§9.58).
+- **Efter et VOLTAGE-skift** laves et reset, og værdien gemmes før kvitteringen (§9.53, §9.54).
+- **Kvitteringen** truncates oven i den gamle, og den har ingen STATUS (§9.56, §9.57).
+- Der er ingen synlig respons (§10.6).
+- **Afvigelser i 2.0:** §9.52–9.58. Responsen bevares (§10.6). Boot-tælleren står i §9.40.
+
+**FR-1300 (trigger og gating):**
+- Ved hvert nyt mount af en USB-MSD-stick læses `584_CMD.TXT` (højst 1 KB).
+- **Behandlingen** (ekko af linjerne til loggen, fortolkning og kvittering) sker kun i RUNNING (fra
+  ON7 er nået, til en OFF-sekvens starter) og på AC-fault-skærmene (FR-108).
+- Et mount under opstart, sluk eller standby venter og behandles én gang, når gaten åbner (§9.52).
+- **Gaten** ligger i Application Layer og ikke i genereret kode (NFR-015).
+- **Forudsætning:** VBUS er forsynet i ON og på AC-fault-skærmen (§11.6).
+- **Behandlingen** sker i ét tick som i [D333], hvor den er målt til højst ca. 0,9 s (ca. 8 % af
+  DMT-perioden). Helios har samme DMT-config (NFR-013). Tallet bevises igen på Helios' bænk.
+
+**FR-1301 (kommandosæt og validering, §9.55):**
+- **Kommandoerne** er `FW`, `VOLTAGE=HIGH|LOW` (FR-111) og `BOOT`. `=` og `:` gælder begge, og der
+  skelnes ikke mellem store og små bogstaver. Der er ingen `SN:` og ingen `ERROR` (§9.58).
+- **Hele filen parses, før noget udføres.** Det, der afviser hele filen uden EEPROM-skrivning, er:
+  - en ugyldig, for lang (over 64 tegn) eller ikke-printbar linje,
+  - en UTF-8-BOM,
+  - en modstridende VOLTAGE.
+- Forudsigelige afvisninger afgøres før første skrivning, og udførelsen stopper ved første
+  skrivefejl (§9.54).
+- **VOLTAGE** skrives kun ved en ændring og slår igennem ved næste tænding. Firmwaren resetter
+  aldrig selv (§9.53). Der er ingen EEPROM-sletning eller fabriksreset via stick.
+
+**FR-1302 (kvitteringen `584_ACK.RTF`, §9.56, §9.57):**
+- **Den gamle kvittering** fjernes ved hvert behandlet mount, før kommandofilen læses. Den nye skrives
+  med fjern, opret, skriv og luk, hvor en luk-fejl er en fejl.
+- **Indhold i [D333]'s rækkefølge med 1.0's tekster:**
+  - de tre titellinjer med `THE GRYPHON HELIOS`,
+  - `FIRMWARE VERSION: <firmwareVersion>`,
+  - `VOLTAGE SETTING: HIGH|LOW` (den gemte værdi),
+  - `BOOT COUNTER: <n>`, når `BOOT` er bedt om,
+  - `STATUS: OK|ERROR`,
+  - eventuelt `ERROR: …` og `ACTION: Power-cycle required`.
+- Der er ingen BOOTLOADER-linje før BTL 2.0 (#2).
+- **Servicevejledningen:** Slet `584_ACK.RTF`, før sticken sættes i. Ingen kvittering betyder intet
+  svar, og fejldetaljer står i `[USB]`-linjerne (§10.6).
+
+**FR-1303 (boot-tæller):** Står i §9.40 og §4.11 (16 bit LE på `0x84–0x85`), og ellers som [D333]
+FR-1303. `BOOT` læser den.
 
 ---
 

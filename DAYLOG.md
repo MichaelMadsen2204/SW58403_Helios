@@ -22,7 +22,9 @@ Overdragelsesfil mellem sessioner og maskiner. Nyeste dag øverst under **Log**.
    (2026-11-27, se log). **Område 6 er gennemgået.** **Område 7 er gennemgået**
    (§4.11, §9.40–9.43, se log "område 7, læst"). **Område 8 er gennemgået**
    (§4.12, §9.44–9.51, §10.5, se log "område 8, læst"). **Område 9 (USB-servicestick, §4.14) er
-   læst**, og alle 10 fund er placeret (§9.52–9.58, §10.6, se log "område 9, læst"). §4.14 mangler.
+   læst**, og alle 10 fund er placeret (§9.52–9.58, §10.6, se log "område 9, læst"). §4.14 er skrevet
+   (FR-1300–1303). **Område 9 er gennemgået.** Alle 9 områder er nu gennemgået. Det næste er §4.13
+   (bootloader-kontrakt) og de tomme afsnit §1, §5–§7.
    - D333-referencerne i område 1–5 er tjekket mod `origin/main` (2026-11-27, se log). Det
      lokale D333-checkout er stadig bagud. Rør det ikke, men læs med
      `git -C D:/MPLAB/d333 show origin/main:<fil>`.
@@ -88,6 +90,9 @@ Servicesticken er læst i `app_usb_cmd.c` (uændret siden `v1.0`), `tasks.c:93-1
   10. **Ingen synlig respons** ved fejl eller succes. [D333] har kun loggen (#253) (SVC-005).
       **Placeret: §10.6** (bevares, kun log som [D333]).
 - **Alle 10 fund er placeret.**
+- **§4.14 er skrevet** med legacy og FR-1300–1303. **Område 9 er gennemgået.**
+- **Rettet bagefter:** §9.3 er bragt i overensstemmelse med §9.51, og SVC-009 er rettet i
+  `claude-setup` (`d9495a4`).
 - **Rettet:** §9.2 sagde "USB kun i standby". Den henviser nu til §9.52.
 - **Fælles erfaring:** Tilføjelsen "Efterprøvet i Helios" i SVC-009 er forkert, for CPU'en sover i
   standby. Rettelsen er foreslået og venter på Michael.
